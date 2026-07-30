@@ -188,7 +188,7 @@ async function aiJson(system, user, timeoutMs = 180000) {
       }
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content || '';
-      console.log(`  AI返回: ${content.length}字符`);
+      console.log(`  AI返回: ${content.length}字符, 开头: ${content.slice(0, 120).replace(/\n/g, ' ')}`);
       return cleanAndParseJson(content);
     } catch (e) {
       console.log(`  第${attempt}次尝试失败: ${e.message}`);
@@ -256,12 +256,26 @@ async function generateFeed(newsData) {
   ];
 
   // 尝试调用某个板块；失败时使用备用数据
-  async function safeGen(name, fn, fallback, minLen = 1) {
+  // fieldKeys: 该板块可能的键名（中英文都列上）
+  async function safeGen(name, fieldKeys, fn, fallback, minLen = 1) {
     try {
       const raw = await fn();
-      const arr = Array.isArray(raw) ? raw : (raw.data || raw[name] || []);
-      if (arr.length >= minLen) { console.log(`  → ${name} ${arr.length} 条`); return arr; }
-      throw new Error(`${name}数量不足(${arr.length}<${minLen})`);
+      let arr = null;
+      if (Array.isArray(raw)) {
+        arr = raw;
+      } else if (raw && typeof raw === 'object') {
+        // 尝试所有可能的键名
+        for (const k of fieldKeys) {
+          if (Array.isArray(raw[k])) { arr = raw[k]; break; }
+        }
+        // 如果对象只有一个键且值是数组，直接用
+        if (!arr) {
+          const vals = Object.values(raw);
+          if (vals.length === 1 && Array.isArray(vals[0])) arr = vals[0];
+        }
+      }
+      if (arr && arr.length >= minLen) { console.log(`  → ${name} ${arr.length} 条`); return arr; }
+      throw new Error(`${name}数量不足(${arr ? arr.length : 0}<${minLen})`);
     } catch (e) {
       console.log(`  ⚠ ${name} 生成失败(${e.message})，使用备用数据`);
       return fallback;
@@ -269,7 +283,7 @@ async function generateFeed(newsData) {
   }
 
   console.log('① 生成【时政】板块 (10条)');
-  const sz = await safeGen('时政', async () => {
+  const sz = await safeGen('时政', ['shizheng', '时政', 'news', 'items', 'data', 'list'], async () => {
     const szRaw = await aiJson(
       '你是公务员考试时政研究员。输出纯JSON数组，不要任何其他文字。',
       `根据以下今日官媒新闻，生成一个JSON数组（10条）考公时政考点。
@@ -287,7 +301,7 @@ ${newsList}
   }, fallbackSz, 5);
 
   console.log('② 生成【申论素材】板块 (8条)');
-  const sc = await safeGen('申论素材', async () => {
+  const sc = await safeGen('申论素材', ['sucai', '申论素材', '素材', 'material', 'data', 'list'], async () => {
     return await aiJson(
       '你是公务员申论研究员。输出纯JSON数组，不要任何其他文字。',
       `根据今日官媒新闻方向（${allLinks.slice(0,6).map(l=>l.title).join('；')}），生成8条考公申论备考素材JSON数组。
@@ -298,7 +312,7 @@ ${newsList}
   }, fallbackSc, 5);
 
   console.log('③ 生成【高频成语】板块 (10个)');
-  const cy = await safeGen('高频成语', async () => {
+  const cy = await safeGen('高频成语', ['chengyu', '高频成语', '成语', 'idioms', 'data', 'list'], async () => {
     return await aiJson(
       '你是公考行测言语老师。输出纯JSON数组，不要任何其他文字。',
       `生成 10 个国考/省考高频易错成语JSON数组，附释义和考公语境辨析。
@@ -309,7 +323,7 @@ ${newsList}
   }, fallbackCy, 5);
 
   console.log('④ 生成【常识考点】板块 (8条)');
-  const cs = await safeGen('常识考点', async () => {
+  const cs = await safeGen('常识考点', ['changshi', '常识考点', '常识', 'knowledge', 'data', 'list'], async () => {
     return await aiJson(
       '你是公考常识研究员。输出纯JSON数组，不要任何其他文字。',
       `生成 8 条公考常识/新法新规/重要会议/政治经济高频考点JSON数组。
