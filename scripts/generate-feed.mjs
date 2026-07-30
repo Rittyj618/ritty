@@ -158,48 +158,12 @@ async function fetchNews() {
 }
 
 // ======================== AI 生成 ========================
-async function generateFeed(newsData) {
-  const newsSummary = newsData.map(s =>
-    `【${s.source}】\n` + s.links.slice(0, 8).map(l => `- ${l.title}`).join('\n')
-  ).join('\n\n');
-
-  const prompt = `你是一位资深的公务员考试（国考/省考/事业编）时政辅导老师。请根据以下今日官媒新闻标题，生成今日的时政推送内容。
-
-## 今日新闻源
-${newsSummary}
-
-## 要求
-请生成 JSON 格式的内容，包含以下板块：
-
-### 1. shizheng（时政，8-12条）
-每条包含: t(标题), s(摘要，50-100字), src(来源), d(日期:${today()}), url(原文链接，用新闻源中的链接), tags(适用考试数组，从${JSON.stringify(EXAM_TAGS)}中选), points(考点提炼，含申论/面试/行测角度)
-
-### 2. sucai（申论素材，6-10条）
-每条包含: t(主题), c(金句+案例+考点，100-150字)
-
-### 3. chengyu（考公高频成语，8-12个）
-每条包含: w(成语), m(释义+考公语境，30-50字)
-
-### 4. changshi（常识考点，6-10条）
-每条包含: t(标题), c(内容，80-120字，含新法新规/高频考点)
-
-## 输出格式
-只输出纯 JSON（不要 markdown 代码块），结构如下：
-{
-  "shizheng": [{"t":"","s":"","src":"","d":"","url":"","tags":[],"points":""}],
-  "sucai": [{"t":"","c":""}],
-  "chengyu": [{"w":"","m":""}],
-  "changshi": [{"t":"","c":""}]
-}
-
-注意：内容要紧扣考公考编实际考点，时政条目要与当日新闻相关，申论素材要有金句和案例，成语要注意易错点。`;
-
-  console.log('调用 AI 生成推送内容...');
-
+// 单次调用 AI（通用）
+async function aiJson(system, user, timeoutMs = 180000) {
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 300000);
+      const tid = setTimeout(() => ctrl.abort(), timeoutMs);
       const res = await fetch(`${AI_URL}/chat/completions`, {
         method: 'POST',
         signal: ctrl.signal,
@@ -210,41 +174,160 @@ ${newsSummary}
         body: JSON.stringify({
           model: AI_MODEL,
           messages: [
-            { role: 'system', content: '你是考公时政老师。严格按要求输出纯JSON，禁止任何额外文字。' },
-            { role: 'user', content: prompt }
+            { role: 'system', content: system + '\n只输出JSON，禁止任何额外文字、解释、markdown。' },
+            { role: 'user', content: user }
           ],
-          temperature: 0.7,
-          max_tokens: 8000
+          temperature: 0.8,
+          max_tokens: 4000
         })
       });
-      clearTimeout(timeout);
-
+      clearTimeout(tid);
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error(`API 返回 ${res.status}: ${errText.slice(0, 200)}`);
+        throw new Error(`API返回${res.status}: ${errText.slice(0, 200)}`);
       }
-
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content || '';
-      console.log(`AI 返回内容长度: ${content.length} 字符`);
-
-      // 清理并解析 JSON
-      const parsed = cleanAndParseJson(content);
-      const feed = normalizeFeed(parsed);
-
-      console.log(`生成成功: 时政${feed.shizheng.length}条, 素材${feed.sucai.length}条, 成语${feed.chengyu.length}个, 常识${feed.changshi.length}条`);
-      return feed;
-
+      console.log(`  AI返回: ${content.length}字符`);
+      return cleanAndParseJson(content);
     } catch (e) {
-      console.log(`第 ${attempt} 次尝试失败: ${e.message}`);
+      console.log(`  第${attempt}次尝试失败: ${e.message}`);
       if (attempt < 3) {
-        console.log(`等待 ${attempt * 10} 秒后重试...`);
-        await sleep(attempt * 10000);
+        await sleep(attempt * 5000);
       } else {
         throw e;
       }
     }
   }
+}
+
+// 拆分生成：分 4 次调用，每次一个板块
+async function generateFeed(newsData) {
+  const todayStr = today();
+  const newsMap = {};
+  const allLinks = [];
+  for (const s of newsData) {
+    for (const l of s.links) {
+      newsMap[l.title] = { src: s.source, url: l.url, title: l.title };
+      allLinks.push(l);
+    }
+  }
+  const newsList = allLinks.slice(0, 15).map(l => `- ${l.title} <${l.url}>`).join('\n');
+  const tagsJson = JSON.stringify(EXAM_TAGS);
+
+  // 备用数据（某板块失败时使用）
+  const fallbackSz = allLinks.slice(0, 10).map(l => ({
+    t: l.title, s: `${l.title}。该新闻具有较高的考公价值，建议关注其背景和政策走向。`,
+    src: newsMap[l.title]?.src || '网络', d: todayStr,
+    url: newsMap[l.title]?.url || l.url, tags: ['国考'],
+    points: '申论素材方向：政策类、治理类话题；行测常识：宏观政策走向。'
+  }));
+  const fallbackSc = [
+    { t: '以人民为中心', c: '金句：江山就是人民，人民就是江山。案例：浙江千万工程20年坚持为民造福。考点：常用于民生、治理主题大作文分论点。' },
+    { t: '高质量发展', c: '金句：发展是党执政兴国的第一要务。案例：粤港澳大湾区建设、长三角一体化。考点：新发展理念、实体经济、科技创新作文。' },
+    { t: '基层治理', c: '金句：基础不牢，地动山摇。案例：枫桥经验新时代实践、网格化治理。考点：基层政权建设、干部下沉、为民服务作文。' },
+    { t: '文化自信', c: '金句：文化兴国运兴，文化强民族强。案例：故宫文创、非遗活化、国潮兴起。考点：文化建设、传统文化作文。' },
+    { t: '生态文明', c: '金句：绿水青山就是金山银山。案例：浙江丽水生态产品价值实现机制。考点：两山论、美丽中国作文。' },
+    { t: '科技创新', c: '金句：科技是第一生产力，人才是第一资源。案例：华为突破芯片封锁、C919大飞机。考点：创新驱动、科技自立作文。' },
+    { t: '乡村振兴', c: '金句：乡村振兴是实现共同富裕的必由之路。案例：浙江千万工程、数字乡村。考点：三农工作、共同富裕作文。' },
+    { t: '法治建设', c: '金句：法治是最好的营商环境。案例：民法典实施、枫桥经验法治化。考点：法治政府、司法公正作文。' }
+  ];
+  const fallbackCy = [
+    { w: '南辕北辙', m: '行动和目的相反。公考语境：常与"缘木求鱼"一起考，侧重方向完全错误。' },
+    { w: '相得益彰', m: '两者互相配合，长处更能显现。公考语境："二者/两者 + 相得益彰"为常见搭配。' },
+    { w: '应运而生', m: '顺应时机而产生。公考语境：新技术、新制度出现时的固定搭配。' },
+    { w: '根深蒂固', m: '根基深厚牢固，不易动摇。公考语境：形容旧观念、旧习惯，中性偏贬义。' },
+    { w: '独树一帜', m: '自成一家，风格独特。公考语境：学术/文化/制度领域的独特成就。' },
+    { w: '水到渠成', m: '条件成熟，事情自然成功。公考语境：强调条件准备充分，与"瓜熟蒂落"近义。' },
+    { w: '一蹴而就', m: '事情很容易一步成功。公考语境：多用于否定句，"不能一蹴而就"高频搭配。' },
+    { w: '耳濡目染', m: '长期接触，无形中受影响。公考语境：家庭教育、文化熏陶，侧重"不知不觉"。' },
+    { w: '持之以恒', m: '长久坚持。公考语境：干部工作作风、学习态度，与"久久为功"近义。' },
+    { w: '推陈出新', m: '去掉旧的糟粕，向新方向发展。公考语境：文化传承、改革创新主题。' }
+  ];
+  const fallbackCs = [
+    { t: '新质生产力', c: '2023年9月习近平在黑龙江考察首次提出：科技创新主导、摆脱传统增长路径、符合高质量发展要求的生产力。核心是科技创新驱动。' },
+    { t: '全过程人民民主', c: '党的二十大报告提出：民主选举、协商、决策、管理、监督各环节彼此贯通，是最广泛、最真实、最管用的社会主义民主。' },
+    { t: '《民法典》亮点', c: '居住权入编（物权编）、离婚冷静期（婚姻家庭编）、高空抛物责任（侵权责任编）、个人信息保护（人格权编独立成编）。' },
+    { t: '中国式现代化五大特征', c: '人口规模巨大的现代化；全体人民共同富裕的现代化；物质文明和精神文明相协调的现代化；人与自然和谐共生的现代化；走和平发展道路的现代化。' },
+    { t: '两个毫不动摇', c: '毫不动摇巩固和发展公有制经济；毫不动摇鼓励、支持、引导非公有制经济发展。民营经济是自己人。' },
+    { t: '三个区分开来', c: '把干部在推进改革中因缺乏经验、先行先试的失误错误，同明知故犯的违纪违法行为区分开来等三条，为担当者担当。' },
+    { t: '枫桥经验', c: '20世纪60年代浙江诸暨枫桥干部创造：发动和依靠群众，矛盾不上交，就地解决。新时代：坚持党建引领，基层治理现代化。' },
+    { t: '千万工程', c: '2003年浙江启动"千村示范、万村整治"工程。20年坚持造就万千美丽乡村，是学习运用"千万工程"经验推动乡村振兴的典范。' }
+  ];
+
+  // 尝试调用某个板块；失败时使用备用数据
+  async function safeGen(name, fn, fallback, minLen = 1) {
+    try {
+      const raw = await fn();
+      const arr = Array.isArray(raw) ? raw : (raw.data || raw[name] || []);
+      if (arr.length >= minLen) { console.log(`  → ${name} ${arr.length} 条`); return arr; }
+      throw new Error(`${name}数量不足(${arr.length}<${minLen})`);
+    } catch (e) {
+      console.log(`  ⚠ ${name} 生成失败(${e.message})，使用备用数据`);
+      return fallback;
+    }
+  }
+
+  console.log('① 生成【时政】板块 (10条)');
+  const sz = await safeGen('时政', async () => {
+    const szRaw = await aiJson(
+      '你是公务员考试时政研究员。输出纯JSON数组，不要任何其他文字。',
+      `根据以下今日官媒新闻，生成一个JSON数组（10条）考公时政考点。
+## 新闻列表
+${newsList}
+
+## 每条结构（严格遵守）
+{"t":"标题","s":"摘要50-100字","src":"来源名称（人民网观点/新华网评论/光明网观点/网络）","d":"${todayStr}","url":"上面新闻中的原文链接","tags":[从${tagsJson}中选],"points":"考点提炼：申论/面试/行测角度(50字内)"}
+
+只输出数组，示例：
+[{"t":"...","s":"...","src":"...","d":"${todayStr}","url":"...","tags":["国考"],"points":"..."}]`,
+      240000
+    );
+    return szRaw;
+  }, fallbackSz, 5);
+
+  console.log('② 生成【申论素材】板块 (8条)');
+  const sc = await safeGen('申论素材', async () => {
+    return await aiJson(
+      '你是公务员申论研究员。输出纯JSON数组，不要任何其他文字。',
+      `根据今日官媒新闻方向（${allLinks.slice(0,6).map(l=>l.title).join('；')}），生成8条考公申论备考素材JSON数组。
+每条结构：{"t":"主题名称","c":"金句1句 + 典型案例(简短) + 考点应用提示 共100-150字"}
+只输出数组，不要外层对象。`,
+      240000
+    );
+  }, fallbackSc, 5);
+
+  console.log('③ 生成【高频成语】板块 (10个)');
+  const cy = await safeGen('高频成语', async () => {
+    return await aiJson(
+      '你是公考行测言语老师。输出纯JSON数组，不要任何其他文字。',
+      `生成 10 个国考/省考高频易错成语JSON数组，附释义和考公语境辨析。
+每条结构：{"w":"成语（4字）","m":"释义+常见错误/考公语境 30-50字"}
+只输出数组，不要外层对象。`,
+      240000
+    );
+  }, fallbackCy, 5);
+
+  console.log('④ 生成【常识考点】板块 (8条)');
+  const cs = await safeGen('常识考点', async () => {
+    return await aiJson(
+      '你是公考常识研究员。输出纯JSON数组，不要任何其他文字。',
+      `生成 8 条公考常识/新法新规/重要会议/政治经济高频考点JSON数组。
+每条结构：{"t":"标题（简短）","c":"考点详解80-120字，适合记诵"}
+只输出数组，不要外层对象。`,
+      240000
+    );
+  }, fallbackCs, 5);
+
+  const feed = normalizeFeed({
+    shizheng: sz,
+    sucai: sc,
+    chengyu: cy,
+    changshi: cs
+  });
+
+  console.log(`\n汇总: 时政${feed.shizheng.length}条, 素材${feed.sucai.length}条, 成语${feed.chengyu.length}个, 常识${feed.changshi.length}条`);
+  return feed;
 }
 
 // ======================== 更新 index.html ========================
