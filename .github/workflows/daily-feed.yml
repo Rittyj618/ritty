@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: 生成时政推送
         id: gen
@@ -34,22 +34,3 @@ jobs:
           git add index.html
           git commit -m "每日推送: $(date -u -d '+8 hours' '+%Y-%m-%d')" || echo "无变更"
           git push
-
-      - name: 失败通知
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.qq.com
-          server_port: 465
-          username: ${{ secrets.MAIL_USER }}
-          password: ${{ secrets.MAIL_PASS }}
-          subject: '⚠️ Ritty 每日推送失败 - $(date -u -d "+8 hours" "+%Y-%m-%d")'
-          to: ${{ secrets.MAIL_TO }}
-          from: Ritty Bot
-          body: |
-            每日时政推送生成失败，请检查：
-            1. AI_API_KEY 是否有效
-            2. 新闻源是否可访问
-            3. GitHub Actions 日志: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            
-            可手动触发: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/daily-feed.yml

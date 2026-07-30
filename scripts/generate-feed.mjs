@@ -25,7 +25,7 @@ const AI_MODEL = process.env.AI_MODEL || 'deepseek-chat';
 // 新闻源
 const NEWS_SOURCES = [
   { name: '人民网·观点', url: 'http://opinion.people.com.cn/' },
-  { name: '人民网·时评', url: 'http://opinion.people.com.cn/n1/2026/0730/c461529-40769123.html' },
+  { name: '人民网·时评', url: 'http://opinion.people.com.cn/GB/404305/index.html' },
   { name: '新华网·评论', url: 'http://www.news.cn/comments/' },
   { name: '光明网·观点', url: 'https://guancha.gmw.cn/' },
 ];
@@ -47,7 +47,7 @@ async function fetchNews() {
     try {
       console.log(`抓取: ${src.name} ...`);
       const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 15000);
+      const timeout = setTimeout(() => ctrl.abort(), 30000);
       const res = await fetch(src.url, {
         signal: ctrl.signal,
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
@@ -118,7 +118,7 @@ ${newsSummary}
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 90000);
+      const timeout = setTimeout(() => ctrl.abort(), 300000);
       const res = await fetch(`${AI_URL}/chat/completions`, {
         method: 'POST',
         signal: ctrl.signal,
