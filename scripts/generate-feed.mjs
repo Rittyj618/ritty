@@ -40,6 +40,87 @@ function today() {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// 清理和修复 AI 返回的 JSON
+function cleanAndParseJson(text) {
+  if (!text) throw new Error('AI 返回空内容');
+  let raw = text.trim();
+  // 去掉 markdown 代码块标记
+  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  raw = raw.replace(/^\uFEFF/, '').trim();
+  // 找到第一个 { 和最后一个 }
+  const first = raw.indexOf('{');
+  const last = raw.lastIndexOf('}');
+  if (first < 0 || last < 0 || last <= first) throw new Error('找不到 JSON 对象边界');
+  raw = raw.slice(first, last + 1);
+  // 尝试修复常见问题：尾逗号、未转义换行
+  try {
+    return JSON.parse(raw);
+  } catch (e1) {
+    try {
+      // 修复：冒号前的非法字符、中文冒号
+      let fixed = raw
+        .replace(/([\u4e00-\u9fa5])\s*:\s*([{\["\d])/g, '$1":$2')    // 补引号: 中文键名: 值 -> "中文键名":值
+        .replace(/,\s*([}\]])/g, '$1')                               // 去掉尾逗号
+        .replace(/\n(?=\s*[^"\d{\[\]}:,\s])/g, ' ');                 // 某些非法换行
+      return JSON.parse(fixed);
+    } catch (e2) {
+      // 最后一招：逐字符找配对大括号，暴力切分
+      let depth = 0, start = -1;
+      for (let i = 0; i < raw.length; i++) {
+        if (raw[i] === '{') { depth++; if (start < 0) start = i; }
+        else if (raw[i] === '}') {
+          depth--;
+          if (depth === 0 && start >= 0) {
+            try { return JSON.parse(raw.slice(start, i + 1)); } catch (_) {}
+            break;
+          }
+        }
+      }
+      throw new Error('JSON 解析失败: ' + e1.message);
+    }
+  }
+}
+
+// 确保返回的 feed 结构完整
+function normalizeFeed(feed) {
+  const todayStr = today();
+  const ensure = (arr, minLen = 1) => (Array.isArray(arr) && arr.length >= minLen) ? arr : null;
+  // 不同键名兼容
+  const shizheng = ensure(feed.shizheng || feed.news || feed.items || feed.时政 || feed.时政推送, 1);
+  const sucai = ensure(feed.sucai || feed.material || feed.申论素材 || feed.素材);
+  const chengyu = ensure(feed.chengyu || feed.idioms || feed.成语 || feed.高频成语);
+  const changshi = ensure(feed.changshi || feed.knowledge || feed.常识 || feed.常识考点);
+
+  if (!shizheng) throw new Error('AI 返回的时政板块为空');
+
+  // 统一字段名
+  const normShizheng = shizheng.map((it, i) => ({
+    t: it.t || it.title || it.标题 || `时政${i + 1}`,
+    s: it.s || it.summary || it.摘要 || it.content || it.内容 || '',
+    src: it.src || it.source || it.来源 || '网络',
+    d: it.d || it.date || it.日期 || todayStr,
+    url: it.url || it.link || it.链接 || '',
+    tags: Array.isArray(it.tags) ? it.tags : (it.标签 || (it.tags ? [it.tags] : [])),
+    points: it.points || it.考点 || it.要点 || ''
+  }));
+
+  return {
+    shizheng: normShizheng,
+    sucai: (sucai || []).map((it, i) => ({
+      t: it.t || it.title || it.主题 || `素材${i + 1}`,
+      c: it.c || it.content || it.内容 || it.text || ''
+    })),
+    chengyu: (chengyu || []).map((it, i) => ({
+      w: it.w || it.word || it.成语 || `成语${i + 1}`,
+      m: it.m || it.meaning || it.释义 || it.意思 || ''
+    })),
+    changshi: (changshi || []).map((it, i) => ({
+      t: it.t || it.title || it.标题 || `常识${i + 1}`,
+      c: it.c || it.content || it.内容 || it.text || ''
+    }))
+  };
+}
+
 // ======================== 抓取新闻 ========================
 async function fetchNews() {
   const results = [];
@@ -128,10 +209,12 @@ ${newsSummary}
         },
         body: JSON.stringify({
           model: AI_MODEL,
-          messages: [{ role: 'user', content: prompt }],
+          messages: [
+            { role: 'system', content: '你是考公时政老师。严格按要求输出纯JSON，禁止任何额外文字。' },
+            { role: 'user', content: prompt }
+          ],
           temperature: 0.7,
-          max_tokens: 8000,
-          response_format: { type: 'json_object' }
+          max_tokens: 8000
         })
       });
       clearTimeout(timeout);
@@ -142,14 +225,14 @@ ${newsSummary}
       }
 
       const data = await res.json();
-      const content = data.choices[0].message.content;
-      const feed = JSON.parse(content);
+      const content = data.choices?.[0]?.message?.content || '';
+      console.log(`AI 返回内容长度: ${content.length} 字符`);
 
-      // 校验基本结构
-      if (!feed.shizheng || !Array.isArray(feed.shizheng) || feed.shizheng.length === 0) {
-        throw new Error('AI 返回的 shizheng 为空');
-      }
-      console.log(`生成成功: 时政${feed.shizheng?.length}条, 素材${feed.sucai?.length}条, 成语${feed.chengyu?.length}个, 常识${feed.changshi?.length}条`);
+      // 清理并解析 JSON
+      const parsed = cleanAndParseJson(content);
+      const feed = normalizeFeed(parsed);
+
+      console.log(`生成成功: 时政${feed.shizheng.length}条, 素材${feed.sucai.length}条, 成语${feed.chengyu.length}个, 常识${feed.changshi.length}条`);
       return feed;
 
     } catch (e) {
