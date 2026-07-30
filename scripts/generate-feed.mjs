@@ -47,28 +47,30 @@ function cleanAndParseJson(text) {
   // 去掉 markdown 代码块标记
   raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
   raw = raw.replace(/^\uFEFF/, '').trim();
-  // 找到第一个 { 和最后一个 }
-  const first = raw.indexOf('{');
-  const last = raw.lastIndexOf('}');
-  if (first < 0 || last < 0 || last <= first) throw new Error('找不到 JSON 对象边界');
+
+  // 判断是数组还是对象
+  const isArray = raw.startsWith('[');
+  const open = isArray ? '[' : '{';
+  const close = isArray ? ']' : '}';
+  const first = raw.indexOf(open);
+  const last = raw.lastIndexOf(close);
+  if (first < 0 || last < 0 || last <= first) throw new Error('找不到 JSON 边界');
   raw = raw.slice(first, last + 1);
-  // 尝试修复常见问题：尾逗号、未转义换行
+
+  // 第一次尝试：直接解析
   try {
     return JSON.parse(raw);
   } catch (e1) {
     try {
-      // 修复：冒号前的非法字符、中文冒号
-      let fixed = raw
-        .replace(/([\u4e00-\u9fa5])\s*:\s*([{\["\d])/g, '$1":$2')    // 补引号: 中文键名: 值 -> "中文键名":值
-        .replace(/,\s*([}\]])/g, '$1')                               // 去掉尾逗号
-        .replace(/\n(?=\s*[^"\d{\[\]}:,\s])/g, ' ');                 // 某些非法换行
+      // 修复常见问题：尾逗号
+      let fixed = raw.replace(/,\s*([}\]])/g, '$1');
       return JSON.parse(fixed);
     } catch (e2) {
-      // 最后一招：逐字符找配对大括号，暴力切分
+      // 最后一招：逐字符找配对括号，暴力切分
       let depth = 0, start = -1;
       for (let i = 0; i < raw.length; i++) {
-        if (raw[i] === '{') { depth++; if (start < 0) start = i; }
-        else if (raw[i] === '}') {
+        if (raw[i] === open) { depth++; if (start < 0) start = i; }
+        else if (raw[i] === close) {
           depth--;
           if (depth === 0 && start >= 0) {
             try { return JSON.parse(raw.slice(start, i + 1)); } catch (_) {}
