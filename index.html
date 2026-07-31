@@ -1523,9 +1523,10 @@ function dpHtml(p){
   if(p.planId){ var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x}); if(pl) link='<span class="t-tag" style="background:var(--purple-l);border-color:var(--purple);color:#7a4fd0">🔗 '+esc(pl.name)+'</span>'; }
   return '<div class="task'+(p.done?' done':'')+'">'
     +'<div class="ck" style="border-color:var(--pink)'+(p.done?';background:var(--pink)':'')+'" onclick="dpTg(\''+p.id+'\')">'+(p.done?'✓':'')+'</div>'
-    +'<div class="t-title">'+esc(p.text)+'</div>'
+    +'<div class="t-title" onclick="editDayplan(\''+p.id+'\')" style="cursor:pointer;flex:1">'+esc(p.text)+'</div>'
     +'<span class="t-tag">'+(p.subj?subjI(p.subj)+' '+subjN(p.subj).slice(0,4):'🌊 计划')+'</span>'
     +link
+    +'<button class="btn sm ghost" onclick="editDayplan(\''+p.id+'\')">✏️</button>'
     +'<button class="del" onclick="dpRm(\''+p.id+'\')">✕</button></div>';
 }
 function mediaHtml(o){
@@ -1818,6 +1819,55 @@ function addDayplan(prefill){
     if(pid){ var pl=null; S.exam.plans.forEach(function(p){if(p.id===pid)pl=p}); if(pl) psubj=pl.subj; }
     S.exam.dayplans.unshift({id:uid(),text:v.text,subj:pid?psubj:v.subj,date:v.date||today(),done:false,planId:pid,n:v.n*1||1,pCounted:false});
     render(); toast('计划 +1，已同步首页 ✨');
+  });
+}
+function editDayplan(id){
+  var p=null; S.exam.dayplans.forEach(function(x){if(x.id===id)p=x});
+  if(!p)return;
+  var planOpts=[{v:'',t:'（不关联学习计划）'}];
+  S.exam.plans.forEach(function(pl){ planOpts.push({v:pl.id,t:subjI(pl.subj)+' '+subjN(pl.subj)+' · '+(pl.type==='course'?'🎬':'✏️')+pl.name+'（'+pl.done+'/'+pl.total+'）'}); });
+  showModal('编辑计划 ✏️',[
+    {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正',value:p.text},
+    {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:p.planId||''},
+    {key:'n',label:'本次完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1',value:p.n||1},
+    {key:'subj',label:'所属科目（不关联计划时填写）',type:'select',options:subjOpts(true),value:p.subj||''},
+    {key:'date',label:'日期',type:'date',value:p.date}
+  ],function(v){
+    if(!v.text){toast('写点内容嘛～');return false}
+    var oldPid=p.planId||'', newPid=v.plan||'';
+    var wasDone=p.done;
+    // 如果已完成，并且改变了关联计划或数量，需要先从旧计划扣除进度
+    if(wasDone && p.pCounted){
+      if(oldPid && (!newPid || newPid!==oldPid)){
+        var oldPl=null; S.exam.plans.forEach(function(pl){if(pl.id===oldPid)oldPl=pl});
+        if(oldPl) oldPl.done=Math.max(0,oldPl.done*1-(p.n||1));
+        p.pCounted=false;
+      }else if(newPid && newPid===oldPid && (v.n*1)!==(p.n*1||1)){
+        var samePl=null; S.exam.plans.forEach(function(pl){if(pl.id===newPid)samePl=pl});
+        if(samePl){
+          samePl.done=Math.max(0,samePl.done*1-(p.n||1)); // 先扣旧的
+          samePl.done=Math.min(samePl.total*1,samePl.done*1+(v.n*1||1)); // 再加新的
+        }
+        p.n=v.n*1||1; // 先更新 n，防止下面重复加
+        p.pCounted=true; // 保持已计数
+        p.text=v.text; p.subj=newPid?(function(){var o=null;S.exam.plans.forEach(function(x){if(x.id===newPid)o=x});return o?o.subj:v.subj})():v.subj; p.date=v.date||today();
+        render(); toast('计划已更新 ✏️');
+        return;
+      }
+    }
+    // 普通情况更新（未完成，或完成但未改变影响进度的字段）
+    p.text=v.text;
+    p.subj=newPid?(function(){var o=null;S.exam.plans.forEach(function(x){if(x.id===newPid)o=x});return o?o.subj:v.subj})():v.subj;
+    p.date=v.date||today();
+    p.planId=newPid;
+    if(!p.pCounted) p.n=v.n*1||1;
+    
+    // 如果变成已完成且新关联了计划，计数
+    if(p.done && newPid && !p.pCounted){
+      var pl=null; S.exam.plans.forEach(function(x){if(x.id===newPid)pl=x});
+      if(pl){ pl.done=Math.min(pl.total*1,pl.done*1+(p.n||1)); p.pCounted=true; }
+    }
+    render(); toast('计划已更新 ✏️');
   });
 }
 function dpTg(id){
