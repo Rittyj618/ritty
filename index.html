@@ -1544,7 +1544,7 @@ function mediaHtml(o){
 /* ---- 状态 ---- */
 var exSubjOpen=-1, exSubjView='', exMistFilter='', exMistOpen='', exCalOff=0, exChart='w', exPieMode='d',
     exPaperType='xc', exPaperOpen='', exAccuTab=0, exAccuShift=0, exRecFilter='', exRecOpen='', exRecStatus='',
-    CUR_PICKS=[], cxGameMode='', cxQuizAnswered={};
+    CUR_PICKS=[], cxGameMode='', cxQuizAnswered={}, cyBodyOpen={};
 var EXTABS=['🏝 概览','📚 科目','📕 错题','📈 试卷','🗞 积累','🎙 背诵'];
 function rExam(){
   var h='<div class="head"><div class="pgo" onclick="openNav()">🌊</div><div class="ht"><h1>上岸计划 · '+EXTABS[tabState.exam].split(' ')[1]+'</h1><div class="sub">日拱一卒，功不唐捐</div></div><button class="gear" onclick="openSettings()">⚙️</button></div>';
@@ -2333,6 +2333,17 @@ function cxQuizAnswer(qIdx,optIdx,qid){
   }
   render();
 }
+/* ---- 成语模块：先遮解析，点击展开 ---- */
+function toggleCyBody(key,btn){
+  cyBodyOpen[key]=!cyBodyOpen[key];
+  if(btn){
+    var next=btn.parentElement.querySelector('[data-cybody]');
+    if(next) next.classList.toggle('show');
+    btn.innerHTML=cyBodyOpen[key]?'🙈 收起解析':'👀 看解析';
+  }else{
+    render();
+  }
+}
 /* ---- Tab7 积累 ---- */
 var BANK_CY=[
  ['筚路蓝缕','形容创业的艰苦'],['宵衣旰食','形容勤于政务'],['久久为功','持之以恒，坚持不懈'],['行稳致远','走得稳才能走得远'],
@@ -2569,7 +2580,35 @@ function rExAccu(){
       }
       h+='<p style="text-align:center;font-size:11px;color:var(--ink-2);margin-top:8px">答对自动下一题，答错显示答案+记忆要点</p></div>';
     }
-  }else{
+  }else if(exAccuTab===2){
+    // 成语：背诵本式，先遮解析再展开
+    var bankC=BANK_CY;
+    var nC=6;
+    var feedKeyC='chengyu';
+    var extraC=(window.RITTY_FEED&&window.RITTY_FEED[feedKeyC])||[];
+    var picksC=extraC.map(function(x){return [x.t||x.w||'',x.c||x.m||'']}).concat(dailyPick(bankC,nC));
+    h+='<div class="card"><div class="rowline"><h3>📜 成语每日推 · 先想后看</h3><button class="btn sm ghost" onclick="exAccuShift++;cyBodyOpen={};render()">🔄 换一批</button></div><div class="dotline"></div>';
+    picksC.forEach(function(it,i){
+      CUR_PICKS.push({cat:cat,title:it[0],content:it[1],url:''});
+      var key='cy_'+exAccuShift+'_'+i;
+      var open=!!cyBodyOpen[key];
+      h+='<div class="norm-card" style="margin-bottom:10px">'
+        +'<div class="norm-head">'
+        +'<span class="norm-topic">📜 成语</span>'
+        +'<span class="norm-no">#'+(i+1)+'</span></div>'
+        +'<div class="norm-prompt">'
+        +'<span class="norm-label">先想一下这个成语的意思 →</span>'
+        +'<div class="norm-desc"><b style="font-size:15px;color:var(--purple-d)">'+esc(it[0])+'</b></div></div>'
+        +'<button class="btn sm pp norm-tg" onclick="toggleCyBody(\''+key+'\',this)" style="font-size:12px">'+(open?'🙈 收起解析':'👀 看解析')+'</button>'
+        +'<div class="norm-ans'+(open?' show':'')+'" data-cybody="'+key+'">'
+        +'<span class="norm-label">解析</span>'
+        +'<div style="font-size:12.5px;color:var(--ink);line-height:1.7;white-space:pre-wrap">'+esc(it[1]||'（暂无解析）')+'</div>'
+        +'</div>'
+        +'<div class="chips" style="margin-top:6px">'+accuChips(i)+'</div></div>';
+    });
+    h+='</div>';
+  }else if(exAccuTab===1){
+    // 申论素材：原有纯文本样式
     var bank=[null,BANK_SC,BANK_CY,null][exAccuTab];
     var n=[0,3,6,0][exAccuTab];
     var feedKey=[null,'sucai','chengyu',null][exAccuTab];
