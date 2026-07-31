@@ -1397,9 +1397,9 @@ function lineSvg(vals,labels,color){
   return h+'</svg>';
 }
 function subjStats(k){
-  var c=0,r=0;
-  S.exam.drills.forEach(function(d){ if(d.subj===k){c+=d.count*1;r+=d.correct*1} });
-  return {c:c,r:r,acc:c?Math.round(r/c*100):null};
+  var c=0,r=0,m=0;
+  S.exam.drills.forEach(function(d){ if(d.subj===k){c+=d.count*1;r+=d.correct*1;m+=d.minutes*1||0} });
+  return {c:c,r:r,mins:m,acc:c?Math.round(r/c*100):null};
 }
 /* 积累/背诵 分类 → 科目 映射（用于科目总览归集） */
 var CAT_SUBJ={sz:['zz','cs'],sc:['sh'],cy:['yy'],cx:['cs','zz'],gf:['sh']};
@@ -1659,9 +1659,13 @@ function rExSubj(){
   h+='<div class="card"><h3>🧾 最近做题记录</h3><div class="dotline"></div>';
   h+= ds.length? ds.map(function(d){
     var acc=d.count>0?Math.round(d.correct/d.count*100):0;
-    return '<div class="li"><div>'+subjI(d.subj)+' '+subjN(d.subj)+(d.plan?'<small>关联：'+esc(d.plan)+'</small>':'')+'<small>'+fmtD(d.date)+'</small></div>'
+    var mins=d.minutes?('⏱ '+d.minutes+'分'):'';
+    var src=d.source?('📖 '+esc(d.source)):'';
+    var tags='';
+    if(mins||src) tags='<div style="display:flex;gap:6px;margin-top:2px">'+(mins?'<small style="color:#8a68d8">'+mins+'</small>':'')+(src?'<small style="color:#c58c42">'+src+'</small>':'')+'</div>':'';
+    return '<div class="li" style="flex-direction:column;align-items:flex-start;gap:4px"><div style="display:flex;align-items:center;gap:6px;width:100%"><div style="flex:1">'+subjI(d.subj)+' '+subjN(d.subj)+(d.plan?'<small>关联：'+esc(d.plan)+'</small>':'')+'<small>'+fmtD(d.date)+'</small></div>'
       +'<span class="pill '+(acc<70?'pk':'')+'">'+d.correct+'/'+d.count+' · '+acc+'%</span>'
-      +'<button class="del" onclick="rmDrill(\''+d.id+'\')">✕</button></div>';
+      +'<button class="del" onclick="rmDrill(\''+d.id+'\')">✕</button></div>'+tags+'</div>';
   }).join('') : emptyHtml('🫧','还没有做题记录');
   h+='</div>';
   return h;
@@ -1699,6 +1703,19 @@ function rExSubjDetail(k){
   h+=card(rowL('🗓 今日计划（本科）','<button class="btn sm pk" onclick="addDayplan()">＋ 计划</button>'),
     dpl.length?dpl.map(dpHtml).join(''):'<div class="empty-in">今天本科还没有计划安排 🌱</div>'
   );
+  // 本科做题记录
+  var subjDrills=S.exam.drills.filter(function(d){return d.subj===k}).slice().reverse().slice(0,10);
+  var subjDrillItems=subjDrills.map(function(d){
+    var acc=d.count>0?Math.round(d.correct/d.count*100):0;
+    var mins=d.minutes?('⏱ '+d.minutes+'分'):'';
+    var src=d.source?('📖 '+esc(d.source)):'';
+    var tags='';
+    if(mins||src) tags='<div style="display:flex;gap:6px;margin-top:2px">'+(mins?'<small style="color:#8a68d8">'+mins+'</small>':'')+(src?'<small style="color:#c58c42">'+src+'</small>':'')+'</div>':'';
+    return '<div class="li" style="flex-direction:column;align-items:flex-start;gap:4px"><div style="display:flex;align-items:center;gap:6px;width:100%"><div style="flex:1">'+(d.plan?'<small>🔗 关联：'+esc(d.plan)+'</small>':'')+'<small>'+fmtD(d.date)+'</small></div>'
+      +'<span class="pill '+(acc<70?'pk':'')+'">'+d.correct+'/'+d.count+' · '+acc+'%</span>'
+      +'<button class="del" onclick="rmDrill(\''+d.id+'\')">✕</button></div>'+tags+'</div>';
+  });
+  h+=card(rowL('🧾 本科做题记录','<button class="btn sm" onclick="addDrill()">＋ 记做题</button>'),dynList(subjDrillItems,'','还没有本科做题记录，点「＋ 记做题」开始 🧮'));
   // 最近错题
   var ms=S.exam.mistakes.filter(function(m){return m.subj===k}).slice(0,8);
   var mistItems=ms.map(function(m){
@@ -1796,16 +1813,23 @@ function addDrill(){
     {key:'accuracy',label:'正确率',type:'readonly',value:'80%',cls:'fld-acc',
       srcKeys:'count,correct',
       calcFn:'function(vals){var c=(vals.count||0)*1,r=(vals.correct||0)*1; if(!c)return"--"; var pct=Math.round(r/c*100); return pct+"%";}'},
+    {key:'minutes',label:'做题时长（分钟）',type:'number',ph:'例如：45'},
+    {key:'source',label:'题源（例如：粉笔/华图/中公/历年真题/5000题…）',ph:'选填，方便区分哪套题'},
     {key:'plan',label:'关联刷题本计划（进度自动累计）',type:'select',options:planOpts},
     {key:'date',label:'日期',type:'date',value:today()}
   ],function(v){
-    var c=v.count*1,r=v.correct*1;
+    var c=v.count*1,r=v.correct*1,m=(v.minutes||0)*1;
     if(!(c>0)){toast('做题数要大于 0 哦');return false}
     if(r>c){toast('正确数不能超过做题数～');return false}
     var pname='';
     if(v.plan){ S.exam.plans.forEach(function(p){ if(p.id===v.plan){ p.done=Math.min(p.total*1,p.done*1+c); pname=p.name; } }); }
-    S.exam.drills.push({id:uid(),date:v.date||today(),subj:v.subj,count:c,correct:r,plan:pname});
-    render(); toast('已记录，正确率 '+Math.round(r/c*100)+'% ✔');
+    // 记录时长到 subjTime（总时长聚合）
+    if(m>0){
+      if(!S.exam.subjTime)S.exam.subjTime=[];
+      S.exam.subjTime.push({subj:v.subj,mins:m,date:v.date||today()});
+    }
+    S.exam.drills.push({id:uid(),date:v.date||today(),subj:v.subj,count:c,correct:r,minutes:m,source:v.source||'',plan:pname});
+    render(); toast('已记录 ✔'+(m>0?(' 耗时 '+m+' 分钟'):'')+(v.source?(' · 题源：'+v.source):''));
   });
 }
 function rmDrill(id){ S.exam.drills=S.exam.drills.filter(function(d){return d.id!==id}); render(); }
