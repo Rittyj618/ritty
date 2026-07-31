@@ -148,7 +148,7 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
   display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;cursor:pointer}
 .task.done .ck{background:var(--teal);border-color:var(--teal)}
 .task.done .t-title{text-decoration:line-through;color:var(--ink-2)}
-.t-title{font-size:14px;flex:1;word-break:break-all}
+.t-title{font-size:14px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .t-tag{font-size:10px;padding:2px 7px;border-radius:99px;background:var(--purple-l);color:#7d5fc9;flex:none}
 .t-date{font-size:10px;color:var(--ink-2);flex:none}
 .t-date.over{color:var(--red);font-weight:700}
@@ -1523,10 +1523,9 @@ function dpHtml(p){
   if(p.planId){ var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x}); if(pl) link='<span class="t-tag" style="background:var(--purple-l);border-color:var(--purple);color:#7a4fd0">🔗 '+esc(pl.name)+'</span>'; }
   return '<div class="task'+(p.done?' done':'')+'">'
     +'<div class="ck" style="border-color:var(--pink)'+(p.done?';background:var(--pink)':'')+'" onclick="dpTg(\''+p.id+'\')">'+(p.done?'✓':'')+'</div>'
-    +'<div class="t-title" onclick="editDayplan(\''+p.id+'\')" style="cursor:pointer;flex:1">'+esc(p.text)+'</div>'
+    +'<div class="t-title" onclick="editDayplan(\''+p.id+'\')" style="cursor:pointer">'+esc(p.text)+'</div>'
     +'<span class="t-tag">'+(p.subj?subjI(p.subj)+' '+subjN(p.subj).slice(0,4):'🌊 计划')+'</span>'
     +link
-    +'<button class="btn sm ghost" onclick="editDayplan(\''+p.id+'\')">✏️</button>'
     +'<button class="del" onclick="dpRm(\''+p.id+'\')">✕</button></div>';
 }
 function mediaHtml(o){
