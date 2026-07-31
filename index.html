@@ -380,9 +380,9 @@ audio{width:100%;height:34px;margin-top:5px}
 /* 学习计划卡片 */
 .plan-item{padding:10px 0;border-bottom:1.5px dashed var(--line)}
 .plan-item:last-child{border-bottom:none}
-.plan-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.plan-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .plan-type{font-size:10px;padding:3px 9px;border-radius:99px;flex:none}
-.plan-name{flex:1;font-size:13px;font-weight:700;word-break:break-all}
+.plan-name{flex:1;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plan-count{flex:none;font-size:12px;color:var(--ink-2)}
 .plan-count b{color:var(--teal-d);font-size:14px}
 .plan-btns{display:flex;gap:5px;align-items:center;flex:none}
@@ -1420,11 +1420,12 @@ function planCardHtml(p){
   var todayN=S.exam.dayplans.filter(function(d){return d.date===today()&&d.planId===p.id}).length;
   return '<div class="plan-item"><div class="plan-top">'
     +'<span class="plan-type pill '+(p.type==='course'?'pp':'pk')+'">'+(p.type==='course'?'🎬 网课':'✏️ 刷题本')+'</span>'
-    +'<span class="plan-name">'+esc(p.name)+'</span>'
+    +'<span class="plan-name" title="'+esc(p.name)+'">'+esc(p.name)+'</span>'
     +'<span class="plan-count"><b>'+p.done+'</b>/'+p.total+(p.type==='course'?'节':'题')+'</span>'
     +'<span class="plan-btns">'
       +'<button class="btn sm ghost" onclick="planAdd(\''+p.id+'\')">＋</button>'
       +'<button class="btn sm ghost" onclick="addDayplan(\''+p.id+'\')">📅</button>'
+      +'<button class="btn sm ghost" onclick="editPlan(\''+p.id+'\')">✏️</button>'
       +'<button class="del" onclick="rmPlan(\''+p.id+'\')">✕</button></span></div>'
     +'<div class="bar'+(p.type==='drill'?' pink':'')+'"><i style="width:'+pct+'%"></i></div>'
     +'<div class="plan-foot">'
@@ -1474,20 +1475,27 @@ function subjPieData(mode){
 function pieSvg(data){
   if(!data.length) return emptyHtml('🍩','还没有学习时长数据');
   var total=data.reduce(function(a,b){return a+b.mins},0), R=55, cx=80, cy=80;
+  if(total<=0) return emptyHtml('🍩','还没有学习时长数据');
   var h='<div style="display:flex;justify-content:center;margin:8px 0"><svg viewBox="0 0 160 160" style="width:180px;height:180px;display:block">';
-  var start=-Math.PI/2;
-  data.forEach(function(d){
-    var ang=(d.mins/total)*Math.PI*2;
-    var x1=cx+R*Math.cos(start), y1=cy+R*Math.sin(start);
-    var x2=cx+R*Math.cos(start+ang), y2=cy+R*Math.sin(start+ang);
-    var large=ang>Math.PI?1:0;
-    h+='<path d="M'+cx+','+cy+' L'+x1+','+y1+' A'+R+','+R+' 0 '+large+' 1 '+x2+','+y2+' Z" fill="'+d.color+'" stroke="#fff" stroke-width="2.5"/>';
-    start+=ang;
-  });
+  if(data.length===1){
+    // 单科目：直接用 circle 画完整环，避免路径退化
+    h+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R+'" fill="'+data[0].color+'" stroke="#fff" stroke-width="2.5"/>';
+  }else{
+    var start=-Math.PI/2;
+    data.forEach(function(d){
+      var ang=(d.mins/total)*Math.PI*2;
+      if(ang>Math.PI*2-0.001) ang=Math.PI*2-0.001; // 防止整圆退化
+      var x1=cx+R*Math.cos(start), y1=cy+R*Math.sin(start);
+      var x2=cx+R*Math.cos(start+ang), y2=cy+R*Math.sin(start+ang);
+      var large=ang>Math.PI?1:0;
+      h+='<path d="M'+cx+','+cy+' L'+x1+','+y1+' A'+R+','+R+' 0 '+large+' 1 '+x2+','+y2+' Z" fill="'+d.color+'" stroke="#fff" stroke-width="2.5"/>';
+      start+=ang;
+    });
+  }
   // 中心白色圆，形成甜甜圈效果
   h+='<circle cx="'+cx+'" cy="'+cy+'" r="28" fill="#fff"/>';
-  h+='<text x="'+cx+'" y="'+(cy-2)+'" text-anchor="middle" font-size="11" fill="var(--ink-2)">总计</text>';
-  h+='<text x="'+cx+'" y="'+(cy+12)+'" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">'+Math.round(total)+'分</text>';
+  h+='<text x="'+cx+'" y="'+(cy-2)+'" text-anchor="middle" font-size="11" fill="#8b88a0">总计</text>';
+  h+='<text x="'+cx+'" y="'+(cy+12)+'" text-anchor="middle" font-size="14" font-weight="700" fill="#4d4a5c">'+Math.round(total)+'分</text>';
   h+='</svg></div>';
   h+='<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px">';
   data.forEach(function(d){ h+='<span class="pill" style="background:'+d.color+'22;color:'+d.color+'"><b>'+d.ic+' '+d.n+'</b> '+Math.round(d.mins/total*100)+'%</span>'; });
@@ -1836,6 +1844,20 @@ function addPlan(prefill){
     if(!v.name||!(v.total*1>0)){toast('名称和总量要填哦');return false}
     S.exam.plans.push({id:uid(),subj:v.subj,type:v.type,name:v.name,total:v.total*1,done:0});
     render(); toast('计划已建立，冲！🚀');
+  });
+}
+function editPlan(id){
+  var p=null; S.exam.plans.forEach(function(x){if(x.id===id)p=x});
+  if(!p)return;
+  showModal('编辑学习计划 ✏️',[
+    {key:'subj',label:'科目',type:'select',options:subjOpts(false),value:p.subj},
+    {key:'type',label:'类型',type:'select',options:[{v:'course',t:'🎬 网课计划'},{v:'drill',t:'✏️ 刷题本计划'}],value:p.type},
+    {key:'name',label:'计划名称',ph:'例如：资料分析专项 1000 题',value:p.name},
+    {key:'total',label:'总量（网课 = 节数 / 刷题本 = 题数）',type:'number',ph:'100',value:p.total}
+  ],function(v){
+    if(!v.name||!(v.total*1>0)){toast('名称和总量要填哦');return false}
+    p.subj=v.subj; p.type=v.type; p.name=v.name; p.total=v.total*1;
+    render(); toast('计划已更新 ✏️');
   });
 }
 function planAdd(id){
