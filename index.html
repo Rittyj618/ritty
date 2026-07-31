@@ -1662,7 +1662,7 @@ function rExSubj(){
     var mins=d.minutes?('⏱ '+d.minutes+'分'):'';
     var src=d.source?('📖 '+esc(d.source)):'';
     var tags='';
-    if(mins||src) tags='<div style="display:flex;gap:6px;margin-top:2px">'+(mins?'<small style="color:#8a68d8">'+mins+'</small>':'')+(src?'<small style="color:#c58c42">'+src+'</small>':'')+'</div>':'';
+    if(mins||src) tags='<div style="display:flex;gap:6px;margin-top:2px">'+(mins?'<small style="color:#8a68d8">'+mins+'</small>':'')+(src?'<small style="color:#c58c42">'+src+'</small>':'')+'</div>';
     return '<div class="li" style="flex-direction:column;align-items:flex-start;gap:4px"><div style="display:flex;align-items:center;gap:6px;width:100%"><div style="flex:1">'+subjI(d.subj)+' '+subjN(d.subj)+(d.plan?'<small>关联：'+esc(d.plan)+'</small>':'')+'<small>'+fmtD(d.date)+'</small></div>'
       +'<span class="pill '+(acc<70?'pk':'')+'">'+d.correct+'/'+d.count+' · '+acc+'%</span>'
       +'<button class="del" onclick="rmDrill(\''+d.id+'\')">✕</button></div>'+tags+'</div>';
@@ -1710,7 +1710,7 @@ function rExSubjDetail(k){
     var mins=d.minutes?('⏱ '+d.minutes+'分'):'';
     var src=d.source?('📖 '+esc(d.source)):'';
     var tags='';
-    if(mins||src) tags='<div style="display:flex;gap:6px;margin-top:2px">'+(mins?'<small style="color:#8a68d8">'+mins+'</small>':'')+(src?'<small style="color:#c58c42">'+src+'</small>':'')+'</div>':'';
+    if(mins||src) tags='<div style="display:flex;gap:6px;margin-top:2px">'+(mins?'<small style="color:#8a68d8">'+mins+'</small>':'')+(src?'<small style="color:#c58c42">'+src+'</small>':'')+'</div>';
     return '<div class="li" style="flex-direction:column;align-items:flex-start;gap:4px"><div style="display:flex;align-items:center;gap:6px;width:100%"><div style="flex:1">'+(d.plan?'<small>🔗 关联：'+esc(d.plan)+'</small>':'')+'<small>'+fmtD(d.date)+'</small></div>'
       +'<span class="pill '+(acc<70?'pk':'')+'">'+d.correct+'/'+d.count+' · '+acc+'%</span>'
       +'<button class="del" onclick="rmDrill(\''+d.id+'\')">✕</button></div>'+tags+'</div>';
