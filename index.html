@@ -395,6 +395,9 @@ audio{width:100%;height:34px;margin-top:5px}
 .report-head,.report-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:6px;align-items:center;padding:8px 4px;font-size:11px;border-bottom:1.5px dashed var(--line)}
 .report-head{font-weight:700;color:var(--ink-2);background:#faf7ff;border-radius:10px 10px 0 0;border-bottom:none}
 .report-row:last-child{border-bottom:none}
+/* 省份速查表：3列布局，别称/古称列更宽 */
+.prov-table .report-head,.prov-table .report-row{grid-template-columns:1.2fr 0.8fr 3fr}
+.prov-table .report-row span:last-child{white-space:normal;line-height:1.5;font-size:12px}
 /* 时政考点提炼 */
 .point-box{background:#fff9f3;border-radius:12px;padding:10px 12px;margin:8px 0;border:1.5px dashed #ffe0c7;line-height:1.7;font-size:12px;color:#a87040}
 .point-box::before{content:"🎯 考点提炼";display:block;font-weight:700;margin-bottom:4px;color:#d68935}
@@ -1536,7 +1539,7 @@ function mediaHtml(o){
 }
 /* ---- 状态 ---- */
 var exSubjOpen=-1, exSubjView='', exMistFilter='', exMistOpen='', exCalOff=0, exChart='w', exPieMode='d',
-    exPaperType='xc', exPaperOpen='', exAccuTab=0, exAccuShift=0, exRecFilter='', exRecOpen='',
+    exPaperType='xc', exPaperOpen='', exAccuTab=0, exAccuShift=0, exRecFilter='', exRecOpen='', exRecStatus='',
     CUR_PICKS=[], cxGameMode='';
 var EXTABS=['🏝 概览','📚 科目','📕 错题','📈 试卷','🗞 积累','🎙 背诵'];
 function rExam(){
@@ -2451,8 +2454,9 @@ function rExAccu(){
       h+='<div class="point-box"><b>朝代歌</b><br>'+CX_DYNASTY_SONG[0]+'</div>';
       h+='<div class="point-box" style="background:#effbf5;border-color:#cdeee8"><b>24节气歌</b><br>'+CX_SOLAR_SONG[0]+'</div>';
       h+='<div class="point-box" style="background:#f4edff;border-color:#d6c6f5"><b>天干地支</b><br>天干：'+CX_TIANGAN.join(' ')+'<br>地支：'+CX_DIZHI.map(function(d,i){return d+'（'+CX_SHENGXIAO[i]+'）'}).join(' ')+'</div>';
-      h+='<div class="report-head" style="margin-top:10px"><span>省份</span><span>简称</span><span>别称/古称</span></div>';
+      h+='<div class="prov-table" style="margin-top:10px"><div class="report-head"><span>省份</span><span>简称</span><span>别称/古称</span></div>';
       CX_PROVINCE.slice(0,15).forEach(function(p){ h+='<div class="report-row"><span><b>'+p[0]+'</b></span><span>'+p[1]+'</span><span>'+esc(p[2])+'</span></div>'; });
+      h+='</div>';
       h+='<small style="display:block;text-align:center;color:var(--ink-2);margin-top:8px">以上仅展示前 15 个省份，完整内容进入小游戏或翻到下方「收藏」板块手动添加 ✨</small>';
       h+='</div>';
     }else{
@@ -2563,30 +2567,51 @@ function rExRec(){
     .concat(SUBJ.map(function(s){return [s.k,s.ic+s.n.slice(0,2)]}))
     .concat([['qt','🌸其他']]);
   fs.forEach(function(f){ h+='<button class="tab'+(exRecFilter===f[0]?' on':'')+'" onclick="exRecFilter=\''+f[0]+'\';render()">'+f[1]+'</button>'; });
+  h+='</div><div class="tabs" style="padding-bottom:4px">';
+  var stfs=[['','全部状态'],['0','○ 背诵中'],['1','✅ 已背熟']];
+  stfs.forEach(function(s){ h+='<button class="tab'+(exRecStatus===s[0]?' on':'')+'" onclick="exRecStatus=\''+s[0]+'\';render()">'+s[1]+'</button>'; });
   h+='</div><div class="dotline"></div>';
-  var list=S.exam.recite.filter(function(r){return !exRecFilter||r.cat===exRecFilter});
-  h+= list.length? list.map(function(r,idx){
-    if(r.cat==='gf') return normRecCard(r);
-    var open=exRecOpen===r.id;
-    var topicLabel=r.topic?r.topic:recCatN(r.cat);
-    return '<div class="norm-card">'
-      +'<div class="norm-head">'
-      +'<span class="norm-topic">'+esc(topicLabel)+'</span>'
-      +'<span class="norm-no">#'+(idx+1)+' 背诵</span></div>'
-      +'<div class="norm-prompt">'
-      +'<span class="norm-label">标题 / 要点</span>'
-      +'<div class="norm-desc"><b style="font-size:13.5px">'+esc(r.title||'未命名')+'</b></div></div>'
-      +'<button class="btn sm pp norm-tg" onclick="toggleRecBody(this);event.stopPropagation()" data-rid="'+r.id+'">'+(open?'🙈 收起内容':'👀 看内容')+'</button>'
-      +'<div class="norm-ans'+(open?' show':'')+'" data-rbody="'+r.id+'">'
-      +'<span class="norm-label">背诵内容</span>'
-      +'<div style="font-size:12.5px;color:var(--ink);line-height:1.7;white-space:pre-wrap">'+esc(r.content||'（暂无内容）')+'</div>'
-      +mediaHtml(r)
-      +'</div>'
-      +'<div class="chips" style="margin-top:8px">'
-        +'<button class="chip" onclick="event.stopPropagation();editRecite(\''+r.id+'\')">✏️ 编辑</button>'
-        +'<button class="chip '+(r.ok?'on':'pk')+'" onclick="tgRecite(\''+r.id+'\');event.stopPropagation()">'+(r.ok?'✅ 已背熟':'○ 背诵中')+'</button>'
-        +'<button class="del" onclick="rmRecite(\''+r.id+'\');event.stopPropagation()">✕</button></div></div>';
-  }).join('') : emptyHtml('🎤','背诵本空空如也');
+  var list=S.exam.recite.filter(function(r){
+    if(exRecFilter&&r.cat!==exRecFilter) return false;
+    if(exRecStatus==='0'&&r.ok) return false;
+    if(exRecStatus==='1'&&!r.ok) return false;
+    return true;
+  });
+  var inProgress=list.filter(function(r){return !r.ok});
+  var mastered=list.filter(function(r){return r.ok});
+  function recCards(arr,offset){
+    return arr.map(function(r,idx){
+      if(r.cat==='gf') return normRecCard(r);
+      var open=exRecOpen===r.id;
+      var topicLabel=r.topic?r.topic:recCatN(r.cat);
+      return '<div class="norm-card">'
+        +'<div class="norm-head">'
+        +'<span class="norm-topic">'+esc(topicLabel)+'</span>'
+        +'<span class="norm-no">#'+(idx+offset+1)+(r.ok?' 已背熟':' 背诵')+'</span></div>'
+        +'<div class="norm-prompt">'
+        +'<span class="norm-label">标题 / 要点</span>'
+        +'<div class="norm-desc"><b style="font-size:13.5px">'+esc(r.title||'未命名')+'</b></div></div>'
+        +'<button class="btn sm pp norm-tg" onclick="toggleRecBody(this);event.stopPropagation()" data-rid="'+r.id+'">'+(open?'🙈 收起内容':'👀 看内容')+'</button>'
+        +'<div class="norm-ans'+(open?' show':'')+'" data-rbody="'+r.id+'">'
+        +'<span class="norm-label">背诵内容</span>'
+        +'<div style="font-size:12.5px;color:var(--ink);line-height:1.7;white-space:pre-wrap">'+esc(r.content||'（暂无内容）')+'</div>'
+        +mediaHtml(r)
+        +'</div>'
+        +'<div class="chips" style="margin-top:8px">'
+          +'<button class="chip" onclick="event.stopPropagation();editRecite(\''+r.id+'\')">✏️ 编辑</button>'
+          +'<button class="chip '+(r.ok?'on':'pk')+'" onclick="tgRecite(\''+r.id+'\');event.stopPropagation()">'+(r.ok?'✅ 已背熟':'○ 背诵中')+'</button>'
+          +'<button class="del" onclick="rmRecite(\''+r.id+'\');event.stopPropagation()">✕</button></div></div>';
+    }).join('');
+  }
+  if(!list.length){ h+=emptyHtml('🎤','背诵本空空如也'); return h+'</div>'; }
+  if(inProgress.length){
+    h+='<div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px"><b style="font-size:12px;color:var(--ink-2)">📖 背诵中</b><span class="pill pk" style="font-size:10px">'+inProgress.length+'</span><div style="flex:1;height:1.5px;background:linear-gradient(90deg,var(--line),transparent)"></div></div>';
+    h+=recCards(inProgress,0);
+  }
+  if(mastered.length){
+    h+='<div style="display:flex;align-items:center;gap:8px;margin:14px 0 6px"><b style="font-size:12px;color:var(--teal-d)">✅ 已背熟</b><span class="pill pp on" style="font-size:10px">'+mastered.length+'</span><div style="flex:1;height:1.5px;background:linear-gradient(90deg,var(--teal-l),transparent)"></div></div>';
+    h+=recCards(mastered,inProgress.length);
+  }
   return h+'</div>';
 }
 function normRecCard(r){
