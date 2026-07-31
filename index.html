@@ -398,6 +398,10 @@ audio{width:100%;height:34px;margin-top:5px}
 /* 省份速查表：3列布局，别称/古称列更宽 */
 .prov-table .report-head,.prov-table .report-row{grid-template-columns:1.2fr 0.8fr 3fr}
 .prov-table .report-row span:last-child{white-space:normal;line-height:1.5;font-size:12px}
+/* 常识做题卡片 */
+.quiz-card{background:#fff;border-radius:16px;padding:14px;border:1.5px solid var(--line);box-shadow:var(--shadow)}
+.quiz-opt{transition:all .15s}
+.quiz-opt:active:not([disabled]){transform:scale(.97)}
 /* 时政考点提炼 */
 .point-box{background:#fff9f3;border-radius:12px;padding:10px 12px;margin:8px 0;border:1.5px dashed #ffe0c7;line-height:1.7;font-size:12px;color:#a87040}
 .point-box::before{content:"🎯 考点提炼";display:block;font-weight:700;margin-bottom:4px;color:#d68935}
@@ -1540,7 +1544,7 @@ function mediaHtml(o){
 /* ---- 状态 ---- */
 var exSubjOpen=-1, exSubjView='', exMistFilter='', exMistOpen='', exCalOff=0, exChart='w', exPieMode='d',
     exPaperType='xc', exPaperOpen='', exAccuTab=0, exAccuShift=0, exRecFilter='', exRecOpen='', exRecStatus='',
-    CUR_PICKS=[], cxGameMode='';
+    CUR_PICKS=[], cxGameMode='', cxQuizAnswered={};
 var EXTABS=['🏝 概览','📚 科目','📕 错题','📈 试卷','🗞 积累','🎙 背诵'];
 function rExam(){
   var h='<div class="head"><div class="pgo" onclick="openNav()">🌊</div><div class="ht"><h1>上岸计划 · '+EXTABS[tabState.exam].split(' ')[1]+'</h1><div class="sub">日拱一卒，功不唐捐</div></div><button class="gear" onclick="openSettings()">⚙️</button></div>';
@@ -2266,6 +2270,69 @@ function cxAnswer(idx){
   setTimeout(function(){ nextCxQ(cxGameState.kind); render(); },ok?600:1800);
 }
 function cxExit(){ cxGameMode=''; render(); }
+/* ---- 常识推送：知识点+选择题 生成 ---- */
+var CX_QUIZ_SUBJS=[
+  ['地理'],['政治'],['经济'],['法律'],['科技'],['人文']
+];
+var CX_QUIZ_BANK=[
+  {subj:'地理',title:'二十四节气',desc:'春季：立春、雨水、惊蛰、春分、清明、谷雨；夏至白昼最长，冬至白昼最短；"两至两分"是重要天文节点。',
+   q:'北半球白昼最长的节气是？',opts:['春分','夏至','秋分','冬至'],ans:1},
+  {subj:'经济',title:'三大产业',desc:'第一产业：农林牧渔；第二产业：采矿、制造、建筑、电热燃水；第三产业：服务业（金融、物流、信息、文旅等）。',
+   q:'下列属于第三产业的是？',opts:['水产养殖','汽车制造','快递物流','房屋建筑'],ans:2},
+  {subj:'政治',title:'我国根本政治制度',desc:'人民代表大会制度是我国的根本政治制度，各级人大是国家权力机关。',
+   q:'我国的根本政治制度是？',opts:['人民代表大会制度','中国共产党领导的多党合作制度','民族区域自治制度','基层群众自治制度'],ans:0},
+  {subj:'政治',title:'新发展理念',desc:'创新、协调、绿色、开放、共享——创新是第一动力，协调是内在要求，绿色是必要条件，开放是必由之路，共享是本质要求。',
+   q:'新发展理念中，被列为"第一动力"的是？',opts:['协调','绿色','创新','开放'],ans:2},
+  {subj:'法律',title:'民法典',desc:'2021年1月1日施行，新中国首部以"法典"命名的法律，共7编1260条。',
+   q:'民法典正式施行的时间是？',opts:['2019年1月1日','2020年1月1日','2021年1月1日','2022年1月1日'],ans:2},
+  {subj:'政治',title:'社会主义核心价值观',desc:'国家层面：富强民主文明和谐；社会层面：自由平等公正法治；公民层面：爱国敬业诚信友善。',
+   q:'社会主义核心价值观中，属于国家层面的价值目标是？',opts:['自由、平等','富强、民主','爱国、敬业','诚信、友善'],ans:1},
+  {subj:'科技',title:'四大发明',desc:'造纸术（东汉蔡伦改进）、印刷术（北宋毕昇发明活字印刷）、指南针（战国司南）、火药（唐朝）。',
+   q:'活字印刷术的发明者是？',opts:['蔡伦','毕昇','张衡','鲁班'],ans:1},
+  {subj:'地理',title:'中国之最',desc:'最长河流长江；最大平原东北平原；最高高原青藏高原；最大盆地塔里木盆地；最大岛屿台湾岛。',
+   q:'我国最长的河流是？',opts:['黄河','长江','珠江','黑龙江'],ans:1},
+  {subj:'政治',title:'碳达峰碳中和',desc:'2030年前实现碳达峰，2060年前实现碳中和；是我国"双碳"战略目标。',
+   q:'我国碳达峰的目标年份是？',opts:['2020年','2030年','2050年','2060年'],ans:1},
+  {subj:'政治',title:'乡村振兴总要求',desc:'产业兴旺、生态宜居、乡风文明、治理有效、生活富裕。',
+   q:'乡村振兴战略的总要求不包括？',opts:['产业兴旺','生态宜居','治理有效','科技领先'],ans:3},
+  {subj:'经济',title:'GDP 与 GNP',desc:'GDP（国内生产总值）按国土原则统计；GNP（国民生产总值）按国民原则统计。',
+   q:'按国土原则统计的经济指标是？',opts:['GNP','GDP','CPI','PPI'],ans:1},
+  {subj:'人文',title:'文房四宝',desc:'笔、墨、纸、砚；以湖笔（浙江湖州）、徽墨（安徽徽州）、宣纸（安徽泾县）、端砚（广东肇庆）最负盛名。',
+   q:'"文房四宝"中，宣纸的产地是？',opts:['浙江湖州','安徽泾县','广东肇庆','安徽徽州'],ans:1},
+  {subj:'科技',title:'中国空间站',desc:'"天宫"空间站：天和核心舱 + 问天、梦天实验舱；2022年完成T字构型。',
+   q:'中国空间站的名称是？',opts:['神舟','天宫','北斗','嫦娥'],ans:1},
+  {subj:'科技',title:'北斗系统',desc:'我国自主建设、独立运行的全球卫星导航系统，2020年完成全球组网。',
+   q:'北斗系统的主要功能是？',opts:['气象预报','卫星导航','通信传输','遥感探测'],ans:1},
+  {subj:'地理',title:'省份简称',desc:'北京=京、上海=沪/申、广东=粤、江苏=苏、浙江=浙、四川=川/蜀、陕西=陕/秦。',
+   q:'"粤"是哪个省的简称？',opts:['江苏省','浙江省','广东省','福建省'],ans:2},
+  {subj:'人文',title:'古代都城',desc:'南京=金陵/建康、西安=长安/镐京、洛阳=洛邑/神都、开封=汴京/汴梁、杭州=临安/钱塘。',
+   q:'"金陵"是现在哪座城市的古称？',opts:['西安','洛阳','南京','杭州'],ans:2},
+  {subj:'地理',title:'24节气特殊节点',desc:'夏至：白昼最长，太阳直射北回归线；冬至：白昼最短，太阳直射南回归线；春分/秋分：昼夜平分。',
+   q:'夏至这一天，太阳直射点在？',opts:['赤道','南回归线','北回归线','北极圈'],ans:2},
+  {subj:'法律',title:'行政处罚种类',desc:'警告、罚款、没收违法所得、责令停产停业、暂扣/吊销许可证件、行政拘留等。',
+   q:'下列不属于行政处罚的是？',opts:['警告','罚款','行政拘留','刑事拘留'],ans:3},
+  {subj:'政治',title:'全过程人民民主',desc:'人民民主的本质属性，最广泛、最真实、最管用的民主，涵盖民主选举、协商、决策、管理、监督各环节。',
+   q:'全过程人民民主的本质属性是？',opts:['依法治国','人民当家作主','改革开放','以德治国'],ans:1},
+  {subj:'经济',title:'财政政策工具',desc:'税收、国债、财政支出为财政政策工具；货币政策工具包括准备金率、利率、公开市场操作。',
+   q:'下列属于财政政策工具的是？',opts:['准备金率','利率','国债','公开市场操作'],ans:2}
+];
+function genCxQuizPick(n){
+  return shuffleArr(CX_QUIZ_BANK).slice(0,Math.min(n,CX_QUIZ_BANK.length));
+}
+function cxQuizAnswer(qIdx,optIdx,qid){
+  var key=qid||('cxq_'+qIdx);
+  if(cxQuizAnswered[key]!==undefined) return;
+  var ok=CX_QUIZ_BANK[qIdx].ans===optIdx;
+  cxQuizAnswered[key]=ok?1:0;
+  if(!ok){
+    var it=CX_QUIZ_BANK[qIdx];
+    S.exam.recite.unshift({id:uid(),cat:'cx',topic:'常识错题',title:'【错题】'+it.q,content:it.desc,imgs:[],audios:[],ok:false,date:today()});
+    toast('答错啦 ❌ 已加入背诵本 ✏️');
+  }else{
+    toast('答对啦！🎉');
+  }
+  render();
+}
 /* ---- Tab7 积累 ---- */
 var BANK_CY=[
  ['筚路蓝缕','形容创业的艰苦'],['宵衣旰食','形容勤于政务'],['久久为功','持之以恒，坚持不懈'],['行稳致远','走得稳才能走得远'],
@@ -2420,47 +2487,68 @@ function rExAccu(){
       h+=normCard(it,i);
     });
     h+='</div>';
-  }else{
-    var bank=[null,BANK_SC,BANK_CY,BANK_CX][exAccuTab];
-    var n=[0,3,6,4][exAccuTab];
-    var feedKey=[null,'sucai','chengyu','changshi'][exAccuTab];
-    var extra=(window.RITTY_FEED&&window.RITTY_FEED[feedKey])||[];
-    var picks=extra.map(function(x){return [x.t||x.w||'',x.c||x.m||'']}).concat(dailyPick(bank,n));
-    h+='<div class="card"><div class="rowline"><h3>'+ACCU_TABS[exAccuTab][0]+' 今日推送 · 每天更新</h3><button class="btn sm ghost" onclick="exAccuShift++;render()">🔄 换一批</button></div><div class="dotline"></div>';
-    picks.forEach(function(it,i){
-      CUR_PICKS.push({cat:cat,title:it[0],content:it[1],url:''});
-      h+='<div class="li" style="align-items:flex-start;flex-direction:column;gap:4px"><div style="flex:1;width:100%"><b style="font-size:13px">'+esc(it[0])+'</b><small>'+esc(it[1])+'</small></div>'+accuChips(i)+'</div>';
+  }else if(exAccuTab===3){
+    var quizPicks=genCxQuizPick(4);
+    h+='<div class="card"><div class="rowline"><h3>🧠 常识每日闯关 · 做题式推送</h3><button class="btn sm ghost" onclick="exAccuShift++;cxQuizAnswered={};render()">🔄 换一批</button></div><div class="dotline"></div>';
+    quizPicks.forEach(function(it,i){
+      var qIdx=CX_QUIZ_BANK.indexOf(it);
+      var qid='cxq_'+qIdx;
+      var answered=cxQuizAnswered[qid];
+      h+='<div class="quiz-card" style="margin-bottom:14px">';
+      h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+      h+='<span class="pill pp" style="font-size:10px">'+esc(it.subj)+'</span>';
+      h+='<b style="font-size:13px">'+esc(it.title)+'</b>';
+      if(answered===1) h+='<span class="pill" style="background:#d6f5e8;color:#2ba777;margin-left:auto">✓ 已答对</span>';
+      else if(answered===0) h+='<span class="pill" style="background:#ffe2e2;color:#c94848;margin-left:auto">✗ 答错</span>';
+      h+='</div>';
+      h+='<div class="point-box" style="background:#fffaf3;border-color:#ffe0c7;margin:6px 0 10px">'+esc(it.desc)+'</div>';
+      h+='<div style="font-size:13px;font-weight:600;margin-bottom:8px">'+(i+1)+'. '+esc(it.q)+'</div>';
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+      it.opts.forEach(function(opt,oi){
+        var isAns=answered!==undefined && oi===it.ans;
+        var isWrong=answered===0 && oi!==it.ans && oi===it.ans;
+        h+='<button class="quiz-opt" onclick="cxQuizAnswer('+qIdx+','+oi+')" '
+          +'style="';
+        if(answered===1 && oi===it.ans) h+='background:linear-gradient(120deg,#7cdbc9,#8fdef1);color:#fff;border-color:#fff';
+        else if(answered===0 && oi===it.ans) h+='background:linear-gradient(120deg,#7cdbc9,#8fdef1);color:#fff;border-color:#fff';
+        else if(answered===0 && oi!==it.ans) h+='background:#ffe2e2;color:#c94848;border-color:#ffbfbf';
+        else if(answered!==undefined) h+='opacity:.5';
+        h+=';padding:10px 12px;border-radius:12px;border:2px solid var(--line);font-size:13px;text-align:left;cursor:'+(answered!==undefined?'default':'pointer')+'">';
+        h+=String.fromCharCode(65+oi)+'. '+esc(opt);
+        h+='</button>';
+      });
+      h+='</div>';
+      if(answered===0){
+        h+='<div style="margin-top:8px;padding:8px 10px;background:#fff7e5;border-radius:10px;border:1.5px dashed #ffd98a;font-size:11px;color:#a87040">📘 正确答案：<b>'+it.opts[it.ans]+'</b> · 已加入背诵本</div>';
+      }
+      h+='</div>';
     });
     h+='</div>';
-  }
-  // 常识互动小游戏入口 + 游戏画面
-  if(exAccuTab===3){
-    if(!cxGameMode){
-      h+='<div class="card"><div class="rowline"><h3>🎮 常识记忆小游戏（公考常考）</h3></div><div class="dotline"></div>';
-      h+='<div class="grid2">';
-      var games=[
-        {k:'prov',ic:'🗺️',t:'省份简称匹配',d:'34个省级行政区的简称、古称、别称速记',c:'mc1'},
-        {k:'old',ic:'🏯',t:'古称=今城？',d:'金陵=南京？长安=西安？一眼看穿公考人文地理',c:'mc2'},
-        {k:'dizhi',ic:'🐲',t:'天干地支+生肖',d:'子鼠丑牛…10天干12地支，顺序记忆',c:'mc3'},
-        {k:'solar',ic:'🌱',t:'24节气歌',d:'春雨惊春清谷天，顺序+特殊意义记牢',c:'mc4'},
-        {k:'dynasty',ic:'👑',t:'朝代顺序速记',d:'一统秦两汉，三分魏蜀吴…再也不混乱',c:'mc5'}
-      ];
-      games.forEach(function(g){
-        h+='<div class="mcard '+g.c+'" onclick="cxStart(\''+g.k+'\')"><div class="mi">'+g.ic+'</div><b>'+g.t+'</b><p>'+g.d+'</p></div>';
-      });
-      h+='</div></div>';
-      // 知识速查卡片
-      h+='<div class="card"><div class="rowline"><h3>📚 常识速查 · 随手记</h3></div><div class="dotline"></div>';
-      h+='<div class="point-box"><b>朝代歌</b><br>'+CX_DYNASTY_SONG[0]+'</div>';
-      h+='<div class="point-box" style="background:#effbf5;border-color:#cdeee8"><b>24节气歌</b><br>'+CX_SOLAR_SONG[0]+'</div>';
-      h+='<div class="point-box" style="background:#f4edff;border-color:#d6c6f5"><b>天干地支</b><br>天干：'+CX_TIANGAN.join(' ')+'<br>地支：'+CX_DIZHI.map(function(d,i){return d+'（'+CX_SHENGXIAO[i]+'）'}).join(' ')+'</div>';
-      h+='<div class="prov-table" style="margin-top:10px"><div class="report-head"><span>省份</span><span>简称</span><span>别称/古称</span></div>';
-      CX_PROVINCE.slice(0,15).forEach(function(p){ h+='<div class="report-row"><span><b>'+p[0]+'</b></span><span>'+p[1]+'</span><span>'+esc(p[2])+'</span></div>'; });
-      h+='</div>';
-      h+='<small style="display:block;text-align:center;color:var(--ink-2);margin-top:8px">以上仅展示前 15 个省份，完整内容进入小游戏或翻到下方「收藏」板块手动添加 ✨</small>';
-      h+='</div>';
-    }else{
-      // 游戏进行中画面
+    // 互动小游戏入口
+    h+='<div class="card"><div class="rowline"><h3>🎮 常识记忆小游戏（公考常考）</h3></div><div class="dotline"></div>';
+    h+='<div class="grid2">';
+    var games=[
+      {k:'prov',ic:'🗺️',t:'省份简称匹配',d:'34个省级行政区的简称、古称、别称速记',c:'mc1'},
+      {k:'old',ic:'🏯',t:'古称=今城？',d:'金陵=南京？长安=西安？一眼看穿公考人文地理',c:'mc2'},
+      {k:'dizhi',ic:'🐲',t:'天干地支+生肖',d:'子鼠丑牛…10天干12地支，顺序记忆',c:'mc3'},
+      {k:'solar',ic:'🌱',t:'24节气歌',d:'春雨惊春清谷天，顺序+特殊意义记牢',c:'mc4'},
+      {k:'dynasty',ic:'👑',t:'朝代顺序速记',d:'一统秦两汉，三分魏蜀吴…再也不混乱',c:'mc5'}
+    ];
+    games.forEach(function(g){
+      h+='<div class="mcard '+g.c+'" onclick="cxStart(\''+g.k+'\')"><div class="mi">'+g.ic+'</div><b>'+g.t+'</b><p>'+g.d+'</p></div>';
+    });
+    h+='</div></div>';
+    // 知识速查卡片
+    h+='<div class="card"><div class="rowline"><h3>📚 常识速查 · 随手记</h3></div><div class="dotline"></div>';
+    h+='<div class="point-box"><b>朝代歌</b><br>'+CX_DYNASTY_SONG[0]+'</div>';
+    h+='<div class="point-box" style="background:#effbf5;border-color:#cdeee8"><b>24节气歌</b><br>'+CX_SOLAR_SONG[0]+'</div>';
+    h+='<div class="point-box" style="background:#f4edff;border-color:#d6c6f5"><b>天干地支</b><br>天干：'+CX_TIANGAN.join(' ')+'<br>地支：'+CX_DIZHI.map(function(d,i){return d+'（'+CX_SHENGXIAO[i]+'）'}).join(' ')+'</div>';
+    h+='<div class="prov-table" style="margin-top:10px"><div class="report-head"><span>省份</span><span>简称</span><span>别称/古称</span></div>';
+    CX_PROVINCE.slice(0,15).forEach(function(p){ h+='<div class="report-row"><span><b>'+p[0]+'</b></span><span>'+p[1]+'</span><span>'+esc(p[2])+'</span></div>'; });
+    h+='</div>';
+    h+='<small style="display:block;text-align:center;color:var(--ink-2);margin-top:8px">以上仅展示前 15 个省份，完整内容进入小游戏或翻到下方「收藏」板块手动添加 ✨</small>';
+    h+='</div>';
+    if(cxGameMode){
       var gs=cxGameState, q=gs.q;
       var tName={prov:'🗺️ 省份简称速记',old:'🏯 古称=今城？',dizhi:'🐲 天干地支·生肖',solar:'🌱 24节气闯关',dynasty:'👑 朝代顺序速记'}[cxGameMode]||'🎮 小游戏';
       h+='<div class="card" style="background:linear-gradient(145deg,#faf7ff,#fff5f8);border:1.5px dashed var(--purple-l)">';
@@ -2481,6 +2569,18 @@ function rExAccu(){
       }
       h+='<p style="text-align:center;font-size:11px;color:var(--ink-2);margin-top:8px">答对自动下一题，答错显示答案+记忆要点</p></div>';
     }
+  }else{
+    var bank=[null,BANK_SC,BANK_CY,null][exAccuTab];
+    var n=[0,3,6,0][exAccuTab];
+    var feedKey=[null,'sucai','chengyu',null][exAccuTab];
+    var extra=(window.RITTY_FEED&&window.RITTY_FEED[feedKey])||[];
+    var picks=extra.map(function(x){return [x.t||x.w||'',x.c||x.m||'']}).concat(dailyPick(bank,n));
+    h+='<div class="card"><div class="rowline"><h3>'+ACCU_TABS[exAccuTab][0]+' 今日推送 · 每天更新</h3><button class="btn sm ghost" onclick="exAccuShift++;render()">🔄 换一批</button></div><div class="dotline"></div>';
+    picks.forEach(function(it,i){
+      CUR_PICKS.push({cat:cat,title:it[0],content:it[1],url:''});
+      h+='<div class="li" style="align-items:flex-start;flex-direction:column;gap:4px"><div style="flex:1;width:100%"><b style="font-size:13px">'+esc(it[0])+'</b><small>'+esc(it[1])+'</small></div>'+accuChips(i)+'</div>';
+    });
+    h+='</div>';
   }
   var favs=S.exam.accu.filter(function(a){return a.cat===cat});
   h+='<div class="card"><div class="rowline"><h3>⭐ 我的收藏 · 笔记</h3><button class="btn sm pp" onclick="addAccu(\''+cat+'\')">＋ 手动添加</button></div><div class="dotline"></div>';
