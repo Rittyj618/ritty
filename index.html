@@ -1537,7 +1537,7 @@ function mediaHtml(o){
 /* ---- 状态 ---- */
 var exSubjOpen=-1, exSubjView='', exMistFilter='', exMistOpen='', exCalOff=0, exChart='w', exPieMode='d',
     exPaperType='xc', exPaperOpen='', exAccuTab=0, exAccuShift=0, exRecFilter='', exRecOpen='',
-    CUR_PICKS=[];
+    CUR_PICKS=[], cxGameMode='';
 var EXTABS=['🏝 概览','📚 科目','📕 错题','📈 试卷','🗞 积累','🎙 背诵'];
 function rExam(){
   var h='<div class="head"><div class="pgo" onclick="openNav()">🌊</div><div class="ht"><h1>上岸计划 · '+EXTABS[tabState.exam].split(' ')[1]+'</h1><div class="sub">日拱一卒，功不唐捐</div></div><button class="gear" onclick="openSettings()">⚙️</button></div>';
@@ -2147,6 +2147,122 @@ function savePaper(isXc){
   closeModal(); render(); toast('试卷已归档，看看趋势 📈');
 }
 function rmPaper(id){ confirmBox('删除这套试卷记录吗？',function(){ S.exam.papers=S.exam.papers.filter(function(p){return p.id!==id}); render(); }); }
+/* ---- 公考常识专项库（朝代/省份/古称/天干地支/24节气）---- */
+var CX_DYNASTY=['夏商周','秦','汉（西汉/东汉）','三国（魏蜀吴）','晋（西晋/东晋）','南北朝','隋','唐','五代十国','宋（北宋/南宋）','元','明','清'];
+var CX_DYNASTY_SONG=['夏商与西周，东周分两段；春秋和战国，一统秦两汉；三分魏蜀吴，两晋前后延；南北朝并立，隋唐五代传；宋元明清后，王朝至此完。'];
+var CX_PROVINCE=[
+  ['北京市','京','燕京、大都、蓟城'],['天津市','津','直沽、天津卫'],['上海市','沪/申','申城、沪上、华亭'],
+  ['重庆市','渝','巴渝、江州、渝州'],['河北省','冀','直隶、燕赵'],['山西省','晋','三晋、河东'],
+  ['辽宁省','辽','奉天、盛京'],['吉林省','吉','—'],['黑龙江省','黑','—'],
+  ['江苏省','苏','金陵（南京）、姑苏（苏州）、广陵（扬州）、京口（镇江）'],
+  ['浙江省','浙','钱塘（杭州）、越州（绍兴）、明州（宁波）、永嘉（温州）'],
+  ['安徽省','皖','徽州、庐州（合肥）、宜城（安庆）'],['福建省','闽','八闽、榕城（福州）、鹭岛（厦门）'],
+  ['江西省','赣','豫章（南昌）、浔阳（九江）、庐陵（吉安）'],
+  ['山东省','鲁','齐鲁、历下（济南）、临淄（淄博）、琅琊（临沂）'],
+  ['河南省','豫','中原、大梁（开封）、汴京/汴梁/东京（开封）、洛邑/神都（洛阳）、商都（安阳）'],
+  ['湖北省','鄂','荆楚、江夏/鄂州（武汉）、江陵/荆州（荆州）、襄阳（襄樊）'],
+  ['湖南省','湘','三湘、潭州（长沙）、武陵（常德）、潇湘'],
+  ['广东省','粤','岭南、羊城（广州）、鹏城（深圳）、鮀岛（汕头）'],
+  ['广西壮族自治区','桂','八桂、邕州（南宁）、桂林（静江府）'],
+  ['海南省','琼','琼州、崖州、珠崖'],['四川省','川/蜀','天府、蓉城（成都）、锦官城（成都）、益州'],
+  ['贵州省','贵/黔','黔中、夜郎、林城（贵阳）'],['云南省','云/滇','春城（昆明）、滇国、大理'],
+  ['西藏自治区','藏','吐蕃、逻些（拉萨）'],['陕西省','陕/秦','关中、长安（西安）、西京（西安）、奉天（西安）、咸阳'],
+  ['甘肃省','甘/陇','陇右、金城（兰州）、沙州（敦煌）、甘州（张掖）'],
+  ['青海省','青','西海、河源'],['宁夏回族自治区','宁','朔方、西夏、兴庆（银川）'],
+  ['新疆维吾尔自治区','新','西域、安西、龟兹、疏勒、于阗'],
+  ['内蒙古自治区','蒙','漠南、绥远、归绥（呼和浩特）'],
+  ['台湾省','台','流求、琉球（古称）、台北府'],['香港特别行政区','港','香江、香港岛'],['澳门特别行政区','澳','濠江、濠镜']
+];
+var CX_CITY_OLD=[
+  ['南京','金陵/建康/应天/建业/石头城'],['西安','长安/镐京/西京/京兆/奉天'],['洛阳','洛邑/东都/神都/洛京/汴京（非）'],
+  ['北京','燕京/蓟/幽州/大都/北平/京师'],['开封','大梁/汴京/汴梁/东京/启封'],['杭州','临安/钱塘/武林/余杭'],
+  ['成都','蓉城/锦官城/益州/天府'],['苏州','姑苏/平江/吴郡'],['扬州','广陵/江都/淮扬/芜城'],
+  ['武汉','江夏/鄂州/汉阳/汉口'],['合肥','庐州/合州/霸都'],['南昌','豫章/洪都/龙兴'],
+  ['沈阳','盛京/奉天/沈州'],['太原','并州/晋阳/龙城/北京（唐北都）'],['临沂','琅琊/沂州'],
+  ['重庆','江州/巴郡/渝州/恭州'],['荆州','江陵/郢都/南郡'],['襄阳','襄州/襄樊/雍州'],
+  ['福州','闽都/榕城/晋安/三山'],['温州','东瓯/永嘉/白鹿城'],['绍兴','会稽/越州/山阴/蠡城'],
+  ['宁波','明州/庆元/四明/甬城'],['兰州','金城/皋兰/陆都'],['南宁','邕州/绿城/五象城'],
+  ['广州','番禺/羊城/穗城/任嚣城'],['桂林','静江府/八桂/桂州'],['长沙','潭州/星城/临湘/荆楚'],
+  ['大理','羊苴咩城/叶榆/史城'],['银川','兴庆府/朔方/凤凰城'],['哈尔滨','上京/会宁/阿勒楚喀']
+];
+var CX_TIANGAN=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+var CX_DIZHI=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+var CX_SHENGXIAO=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
+var CX_SOLAR=['立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降','立冬','小雪','大雪','冬至','小寒','大寒'];
+var CX_SOLAR_SONG=['春雨惊春清谷天，夏满芒夏暑相连；秋处露秋寒霜降，冬雪雪冬小大寒。'];
+var CX_SOLAR_POINT=[['夏至','白昼最长，太阳直射北回归线'],['冬至','白昼最短，太阳直射南回归线'],['春分/秋分','昼夜平分（太阳直射赤道）'],['立春','24节气之首，春季开始'],['清明','既是节气也是传统节日，祭祖踏青']];
+/* ---- 常识互动小游戏：状态 + 数据生成 ---- */
+var cxGameState={kind:'',round:0,score:0,total:0,q:{},picked:[]};
+function shuffleArr(a){ var b=a.slice(); for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=b[i];b[i]=b[j];b[j]=t;} return b;}
+function cxStart(kind){
+  cxGameMode=kind;
+  cxGameState={kind:kind,round:0,score:0,total:0,q:{},picked:[]};
+  nextCxQ(kind);
+  render();
+}
+function nextCxQ(kind){
+  cxGameState.round++;
+  var q=null;
+  if(kind==='prov'){ // 省份 → 简称
+    var list=CX_PROVINCE.filter(function(x){return x[1].length<=4});
+    var it=list[Math.floor(Math.random()*list.length)];
+    var opts=shuffleArr([it[1].split('/')[0]]
+      .concat(shuffleArr(list.filter(function(x){return x[0]!==it[0]}).slice(0,3).map(function(x){return x[1].split('/')[0]}))));
+    q={title:'「'+it[0]+'」的简称是？',opts:opts,ans:it[1].split('/')[0],tip:it[0]+' = '+it[1]+'（古称：'+it[2]+'）'};
+  }else if(kind==='old'){ // 城市 → 古称
+    var it2=CX_CITY_OLD[Math.floor(Math.random()*CX_CITY_OLD.length)];
+    var fake=shuffleArr(CX_CITY_OLD.filter(function(x){return x[0]!==it2[0]}).slice(0,3).map(function(x){return x[0]}));
+    var opts2=shuffleArr([it2[0]].concat(fake));
+    q={title:'古称「'+it2[1].split('/')[0]+'」是现在的哪座城市？',opts:opts2,ans:it2[0],tip:it2[1].split('/')[0]+' → '+it2[0]+'（其他古称：'+it2[1]+'）'};
+  }else if(kind==='dizhi'){ // 地支 / 生肖 / 顺序
+    var i=Math.floor(Math.random()*CX_DIZHI.length);
+    var real=CX_DIZHI[i]+'（'+CX_SHENGXIAO[i]+'）';
+    var fake=[];
+    while(fake.length<3){
+      var j=Math.floor(Math.random()*CX_DIZHI.length); if(j===i||fake.indexOf(j)>=0) continue;
+      fake.push(j);
+    }
+    var opts3=shuffleArr([real].concat(fake.map(function(k){return CX_DIZHI[k]+'（'+CX_SHENGXIAO[k]+'）'})));
+    q={title:'地支第 '+(i+1)+' 位（十二生肖对应）是？',opts:opts3,ans:real,
+      tip:'天干：甲乙丙丁戊己庚辛壬癸（10）\n地支：子丑寅卯辰巳午未申酉戌亥（12）→ '+(i+1)+'位是 '+real};
+  }else if(kind==='solar'){ // 24节气
+    var choice=['季节顺序','特殊意义','歌诀填空'];
+    var type=choice[Math.floor(Math.random()*choice.length)];
+    if(type==='特殊意义'){
+      var sp=CX_SOLAR_POINT[Math.floor(Math.random()*CX_SOLAR_POINT.length)];
+      var fake2=shuffleArr(CX_SOLAR_POINT.filter(function(x){return x[0]!==sp[0]}).slice(0,3).map(function(x){return x[0].split('/')[0]}));
+      var opts4=shuffleArr([sp[0].split('/')[0]].concat(fake2));
+      q={title:sp[1]+' → 对应哪个节气？',opts:opts4,ans:sp[0].split('/')[0],tip:sp[0]+'：'+sp[1]+'\n歌诀：'+CX_SOLAR_SONG[0]};
+    }else{
+      var idx=Math.floor(Math.random()*(CX_SOLAR.length-4))+2;
+      var trio=CX_SOLAR.slice(idx-1,idx+2); // [前, 本, 后]
+      var real=CX_SOLAR[idx];
+      var fake3=shuffleArr(CX_SOLAR.filter(function(x){return trio.indexOf(x)<0}).slice(0,3));
+      var opts5=shuffleArr([real].concat(fake3));
+      q={title:'节气顺序：'+CX_SOLAR[idx-1]+' → ？ → '+CX_SOLAR[idx+1],opts:opts5,ans:real,tip:'24节气顺序：'+CX_SOLAR.slice(0,idx+2).join(' → ')};
+    }
+  }else if(kind==='dynasty'){ // 朝代顺序
+    var d=CX_DYNASTY.slice();
+    var di=Math.floor(Math.random()*(d.length-2))+1;
+    var trioD=d.slice(di-1,di+2);
+    var realD=d[di];
+    var fakeD=shuffleArr(d.filter(function(x){return trioD.indexOf(x)<0}).slice(0,3));
+    var opts6=shuffleArr([realD].concat(fakeD));
+    q={title:'朝代顺序：'+d[di-1]+' → ？ → '+d[di+1],opts:opts6,ans:realD,tip:'朝代歌：'+CX_DYNASTY_SONG[0]};
+  }
+  cxGameState.q=q||{};
+  cxGameState.total++;
+  cxGameState.picked=[];
+}
+function cxAnswer(idx){
+  if(cxGameState.picked.length) return;
+  cxGameState.picked.push(idx);
+  var ok=cxGameState.q.opts[idx]===cxGameState.q.ans;
+  if(ok) cxGameState.score++;
+  toast(ok?'答对啦！🎉':'答错啦 ❌ 答案：'+cxGameState.q.ans);
+  setTimeout(function(){ nextCxQ(cxGameState.kind); render(); },ok?600:1800);
+}
+function cxExit(){ cxGameMode=''; render(); }
 /* ---- Tab7 积累 ---- */
 var BANK_CY=[
  ['筚路蓝缕','形容创业的艰苦'],['宵衣旰食','形容勤于政务'],['久久为功','持之以恒，坚持不懈'],['行稳致远','走得稳才能走得远'],
@@ -2313,6 +2429,54 @@ function rExAccu(){
       h+='<div class="li" style="align-items:flex-start;flex-direction:column;gap:4px"><div style="flex:1;width:100%"><b style="font-size:13px">'+esc(it[0])+'</b><small>'+esc(it[1])+'</small></div>'+accuChips(i)+'</div>';
     });
     h+='</div>';
+  }
+  // 常识互动小游戏入口 + 游戏画面
+  if(exAccuTab===3){
+    if(!cxGameMode){
+      h+='<div class="card"><div class="rowline"><h3>🎮 常识记忆小游戏（公考常考）</h3></div><div class="dotline"></div>';
+      h+='<div class="grid2">';
+      var games=[
+        {k:'prov',ic:'🗺️',t:'省份简称匹配',d:'34个省级行政区的简称、古称、别称速记',c:'mc1'},
+        {k:'old',ic:'🏯',t:'古称=今城？',d:'金陵=南京？长安=西安？一眼看穿公考人文地理',c:'mc2'},
+        {k:'dizhi',ic:'🐲',t:'天干地支+生肖',d:'子鼠丑牛…10天干12地支，顺序记忆',c:'mc3'},
+        {k:'solar',ic:'🌱',t:'24节气歌',d:'春雨惊春清谷天，顺序+特殊意义记牢',c:'mc4'},
+        {k:'dynasty',ic:'👑',t:'朝代顺序速记',d:'一统秦两汉，三分魏蜀吴…再也不混乱',c:'mc5'}
+      ];
+      games.forEach(function(g){
+        h+='<div class="mcard '+g.c+'" onclick="cxStart(\''+g.k+'\')"><div class="mi">'+g.ic+'</div><b>'+g.t+'</b><p>'+g.d+'</p></div>';
+      });
+      h+='</div></div>';
+      // 知识速查卡片
+      h+='<div class="card"><div class="rowline"><h3>📚 常识速查 · 随手记</h3></div><div class="dotline"></div>';
+      h+='<div class="point-box"><b>朝代歌</b><br>'+CX_DYNASTY_SONG[0]+'</div>';
+      h+='<div class="point-box" style="background:#effbf5;border-color:#cdeee8"><b>24节气歌</b><br>'+CX_SOLAR_SONG[0]+'</div>';
+      h+='<div class="point-box" style="background:#f4edff;border-color:#d6c6f5"><b>天干地支</b><br>天干：'+CX_TIANGAN.join(' ')+'<br>地支：'+CX_DIZHI.map(function(d,i){return d+'（'+CX_SHENGXIAO[i]+'）'}).join(' ')+'</div>';
+      h+='<div class="report-head" style="margin-top:10px"><span>省份</span><span>简称</span><span>别称/古称</span></div>';
+      CX_PROVINCE.slice(0,15).forEach(function(p){ h+='<div class="report-row"><span><b>'+p[0]+'</b></span><span>'+p[1]+'</span><span>'+esc(p[2])+'</span></div>'; });
+      h+='<small style="display:block;text-align:center;color:var(--ink-2);margin-top:8px">以上仅展示前 15 个省份，完整内容进入小游戏或翻到下方「收藏」板块手动添加 ✨</small>';
+      h+='</div>';
+    }else{
+      // 游戏进行中画面
+      var gs=cxGameState, q=gs.q;
+      var tName={prov:'🗺️ 省份简称速记',old:'🏯 古称=今城？',dizhi:'🐲 天干地支·生肖',solar:'🌱 24节气闯关',dynasty:'👑 朝代顺序速记'}[cxGameMode]||'🎮 小游戏';
+      h+='<div class="card" style="background:linear-gradient(145deg,#faf7ff,#fff5f8);border:1.5px dashed var(--purple-l)">';
+      h+='<div class="rowline"><div style="flex:1"><h3 style="margin:0;font-size:14px">🎮 '+tName+'</h3><small style="color:var(--ink-2)">第 '+gs.round+' 题 · 得分 <b style="color:var(--teal-d);font-size:16px">'+gs.score+'</b> / '+gs.total+'</small></div>';
+      h+='<button class="btn sm ghost" onclick="cxExit()">退出游戏</button></div><div class="dotline"></div>';
+      h+='<div style="padding:12px 10px;background:#fff;border-radius:14px;box-shadow:var(--shadow);border:1.5px solid #fff">';
+      h+='<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:12px;line-height:1.5">💡 '+esc(q.title)+'</div>';
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+      (q.opts||[]).forEach(function(opt,i){
+        var picked=gs.picked.indexOf(i)>=0;
+        var isAns=picked && opt===q.ans;
+        var isWrong=picked && opt!==q.ans;
+        h+='<button onclick="cxAnswer('+i+')" class="btn sm '+(isAns?'':'ghost')+'" style="'+(isAns?'background:linear-gradient(120deg,#7cdbc9,#8fdef1);color:#fff;border-color:#fff':isWrong?'background:#ffe2e2;color:var(--red);border-color:#ffbfbf':(picked?'opacity:.6':''))+';padding:10px 8px;border-radius:12px;font-size:13px;text-align:left;justify-content:flex-start;min-height:44px">'+(picked?(isAns?'✅ ':(isWrong?'❌ ':'  ')):'  ')+esc(opt)+'</button>';
+      });
+      h+='</div></div>';
+      if(gs.picked.length){
+        h+='<div style="margin-top:10px;padding:10px 12px;background:#fff7e5;border-radius:12px;border:1.5px dashed #ffd98a;font-size:12px;line-height:1.7;white-space:pre-wrap;color:#a87040">📘 '+esc(q.tip||'')+'</div>';
+      }
+      h+='<p style="text-align:center;font-size:11px;color:var(--ink-2);margin-top:8px">答对自动下一题，答错显示答案+记忆要点</p></div>';
+    }
   }
   var favs=S.exam.accu.filter(function(a){return a.cat===cat});
   h+='<div class="card"><div class="rowline"><h3>⭐ 我的收藏 · 笔记</h3><button class="btn sm pp" onclick="addAccu(\''+cat+'\')">＋ 手动添加</button></div><div class="dotline"></div>';
