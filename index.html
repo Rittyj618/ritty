@@ -182,41 +182,40 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .tmr-seg-btn{flex:1;border:none;cursor:pointer;padding:8px 10px;border-radius:11px;font-size:13px;font-weight:700;background:transparent;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:4px;transition:all .25s}
 .tmr-seg-btn.on{background:#fff;color:#c9467c;box-shadow:0 2px 8px rgba(255,122,162,.2);transform:scale(1.02)}
 .tmr-seg-emoji{font-size:16px}
-.tmr-display{position:relative;width:200px;height:210px;margin:4px auto;display:flex;align-items:center;justify-content:center}
-.tmr-display-inner{position:relative;z-index:1;text-align-center;display:flex;flex-direction:column;align-items:center}
-.tmr-emoji{font-size:64px;line-height:1;display:block;margin-bottom:2px;filter:drop-shadow(0 4px 8px rgba(255,122,162,.25))}
-.tmr-bounce{animation:tmrBounce .6s ease-in-out infinite}
+.tmr-display{position:relative;width:240px;height:260px;margin:4px auto;display:flex;align-items:center;justify-content:center}
+.tmr-tomato{position:relative;z-index:2;width:180px;height:180px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:radial-gradient(circle at 35% 30%,#ff8fa8 0%,#ff5c8d 40%,#e84272 100%);box-shadow:0 8px 24px rgba(255,92,141,.35),inset 0 -8px 16px rgba(0,0,0,.15),inset 0 4px 12px rgba(255,255,255,.25);border:3px solid #fff;overflow:hidden}
+.tmr-tomato::before{content:'';position:absolute;top:6px;left:25%;width:40%;height:20px;background:radial-gradient(ellipse,rgba(255,255,255,.45),transparent 70%);border-radius:50%;pointer-events:none}
+.tmr-tomato-emoji{font-size:28px;line-height:1;margin-bottom:2px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))}
+.tmr-tomato-time{background:rgba(255,255,255,.92);border-radius:14px;padding:4px 14px;margin:2px 0;box-shadow:0 3px 8px rgba(0,0,0,.12);backdrop-filter:blur(4px)}
+.tmr-time{font-size:32px;font-weight:800;color:#d13e6e;font-variant-numeric:tabular-nums;letter-spacing:-1px;line-height:1;text-shadow:0 1px 2px rgba(255,255,255,.5)}
+.tmr-phase{font-size:11px;color:#fff;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.3);margin-top:2px}
+.tmr-bounce{animation:tmrBounce .7s ease-in-out infinite}
 .tmr-idle{animation:none}
-@keyframes tmrBounce{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-8px) rotate(-4deg)}75%{transform:translateY(-4px) rotate(2deg)}}
-.tmr-time{font-size:36px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-1px;line-height:1;text-shadow:0 2px 8px rgba(255,122,162,.15);margin:6px 0 2px}
-.tmr-phase{font-size:12px;color:var(--pink);font-weight:600;margin-bottom:8px}
-/* 呼吸光圈 */
-.tmr-glow{position:absolute;border-radius:50%;pointer-events:none}
-.tmr-glow-1{width:180px;height:180px;animation:tmrGlow1 2.5s ease-in-out infinite}
-.tmr-glow-2{width:140px;height:140px;animation:tmrGlow2 2.5s ease-in-out infinite}
-@keyframes tmrGlow1{0%,100%{transform:scale(1);opacity:.3}50%{transform:scale(1.08);opacity:.15}}
-@keyframes tmrGlow2{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.12);opacity:.2}}
-/* 大圆形按钮 */
-.tmr-main-btn{width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s cubic-bezier(.22,1.4,.36,1);margin-top:4px}
-.tmr-main-btn:active{transform:scale(.9)}
-.tmr-main-go{background:linear-gradient(135deg,#ff7aa2,#ff5c8d);color:#fff;box-shadow:0 6px 20px rgba(255,122,162,.45),inset 0 -3px 8px rgba(0,0,0,.12);animation:tmrPop .4s cubic-bezier(.22,1.4,.36,1)}
-.tmr-main-pause{background:linear-gradient(135deg,#ffb347,#ff8c42);color:#fff;box-shadow:0 6px 20px rgba(255,180,71,.4),inset 0 -3px 8px rgba(0,0,0,.12);animation:tmrPulse 1.8s ease-in-out infinite}
-.tmr-main-icon{font-size:18px;line-height:1}
-@keyframes tmrPop{0%{transform:scale(0)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
-@keyframes tmrPulse{0%,100%{box-shadow:0 6px 20px rgba(255,180,71,.4),inset 0 -3px 8px rgba(0,0,0,.12)}50%{box-shadow:0 6px 30px rgba(255,180,71,.7),inset 0 -3px 8px rgba(0,0,0,.12)}}
-/* 底部小按钮 */
-.tmr-btns-bottom{display:flex;gap:8px;justify-content:center;margin-top:10px}
-.tmr-mini-btn{border:none;cursor:pointer;padding:8px 14px;border-radius:12px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px;transition:all .2s}
-.tmr-mini-btn:active{transform:scale(.94)}
-.tmr-mini-done{background:linear-gradient(135deg,#7ed6a5,#4ecb8a);color:#fff;box-shadow:0 3px 10px rgba(78,203,138,.3)}
-.tmr-mini-reset{background:#fff;color:var(--ink-2);border:2px solid var(--line)}
-.tmr-pomo-cfg{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-2);justify-content:center;margin:6px 0 2px;flex-wrap:wrap}
+@keyframes tmrBounce{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}
+.tmr-sparkle{position:absolute;font-size:14px;pointer-events:none;z-index:1}
+.tmr-sp1{top:10px;left:20px;animation:tmrTwinkle 1.5s ease-in-out infinite}
+.tmr-sp2{top:30px;right:15px;animation:tmrTwinkle 1.5s ease-in-out infinite .5s}
+.tmr-sp3{bottom:20px;left:15px;animation:tmrTwinkle 1.5s ease-in-out infinite 1s}
+@keyframes tmrTwinkle{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
+.tmr-btns-row{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.tmr-btns-row2{display:flex;gap:8px;justify-content:center;margin-top:8px}
+.tmr-ctrl{border:none;cursor:pointer;padding:9px 14px;border-radius:14px;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .2s;min-width:58px}
+.tmr-ctrl:active{transform:scale(.92)}
+.tmr-ctrl-ico{font-size:16px;line-height:1}
+.tmr-ctrl-lbl{font-size:10px;font-weight:600}
+.tmr-ctrl-play{background:linear-gradient(135deg,#ff7aa2,#ff5c8d);color:#fff;box-shadow:0 4px 12px rgba(255,122,162,.35)}
+.tmr-ctrl-pause{background:linear-gradient(135deg,#ffd06b,#ffb347);color:#7a4d10;box-shadow:0 4px 12px rgba(255,180,71,.3)}
+.tmr-ctrl-reset{background:linear-gradient(135deg,#e8e4f0,#d4cfde);color:var(--ink-2);box-shadow:0 4px 12px rgba(150,130,180,.2)}
+.tmr-ctrl-done{background:linear-gradient(135deg,#7ed6a5,#4ecb8a);color:#fff;box-shadow:0 4px 12px rgba(78,203,138,.3)}
+.tmr-ctrl-play:active{animation:tmrPop .3s cubic-bezier(.22,1.4,.36,1)}
+@keyframes tmrPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+.tmr-pomo-cfg{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-2);justify-content:center;margin:8px 0 2px;flex-wrap:wrap}
 .tmr-cfg-label{font-weight:600;color:var(--ink-2)}
 .tmr-cfg-sel{font-size:12px;padding:2px 4px;border:1.5px solid var(--line);border-radius:8px;background:#fff}
 .tmr-cfg-sel:disabled{opacity:.5}
 .tmr-cfg-sep{color:var(--line)}
 .tmr-cfg-round{font-weight:700;color:#e56b8a}
-.tmr-plan-sel{margin:8px 0 4px}
+.tmr-plan-sel{margin:6px 0 4px}
 .tmr-plan-label{font-size:11px;color:var(--ink-2);font-weight:600;margin-bottom:4px}
 .tmr-plan-option{width:100%;font-size:12px;padding:6px 8px;border:2px solid var(--line);border-radius:12px;background:linear-gradient(145deg,#faf7ff,#fff);color:var(--ink)}
 .tmr-total-hint{font-size:11px;color:var(--ink-2);margin-top:4px;text-align:center;padding:4px;background:var(--bg);border-radius:10px}
@@ -2374,9 +2373,9 @@ function tmrLoop(){
       var ring=$('tmr-ring');
       if(ring){
         var p=tmrProgress();
-        var r=68, c=2*Math.PI*r;
+        var r=78, c=2*Math.PI*r;
         ring.setAttribute('stroke-dashoffset',c*(1-p));
-        ring.setAttribute('transform','rotate(-90 90 90)');
+        ring.setAttribute('transform','rotate(-90 110 110)');
       }
       // 更新状态文字
       var phase=$('tmr-phase');
@@ -2467,49 +2466,38 @@ function tmrCardHtml(){
   var emoji=isPomo?(working?'🍅':'☕'):'⏱';
   var phaseTxt=isPomo?(working?'专注中…加油！':'休息一下～喝口水'):'计时中…';
   var bounce=t.running?'tmr-bounce':'tmr-idle';
-  // SVG 进度弧线 + 呼吸光圈
+  // SVG 进度弧线
   var ringHtml='';
-  var glowHtml='';
   if(isPomo){
-    var r=68, c=2*Math.PI*r, p=tmrProgress();
+    var r=78, c=2*Math.PI*r, p=tmrProgress();
     var ringColor=working?'#ff7aa2':'#7ac6e3';
-    ringHtml='<svg width="180" height="180" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">'
-      +'<circle id="tmr-ring" cx="90" cy="90" r="'+r+'" fill="none" stroke="'+ringColor+'" stroke-width="4" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+(c*(1-p))+'" transform="rotate(-90 90 90)" style="transition:stroke-dashoffset 1s linear;filter:drop-shadow(0 2px 6px '+ringColor+'aa);opacity:.85"/>'
+    ringHtml='<svg width="220" height="220" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">'
+      +'<circle id="tmr-ring" cx="110" cy="110" r="'+r+'" fill="none" stroke="'+ringColor+'" stroke-width="5" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+(c*(1-p))+'" transform="rotate(-90 110 110)" style="transition:stroke-dashoffset 1s linear;filter:drop-shadow(0 3px 8px '+ringColor+'aa);opacity:.9"/>'
       +'</svg>';
-    if(t.running){
-      glowHtml='<div class="tmr-glow tmr-glow-1" style="background:'+ringColor+'33"></div>'
-        +'<div class="tmr-glow tmr-glow-2" style="background:'+ringColor+'22"></div>';
-    }
-  }else{
-    // 计时器模式：显示呼吸光圈
-    if(t.running){
-      glowHtml='<div class="tmr-glow tmr-glow-1" style="background:#ff7aa233"></div>'
-        +'<div class="tmr-glow tmr-glow-2" style="background:#ff7aa222"></div>';
-    }
   }
-  // 大圆形开始/暂停按钮
-  var mainBtn='';
-  if(t.running){
-    mainBtn='<button class="tmr-main-btn tmr-main-pause" onclick="tmrPause()">'
-      +'<span class="tmr-main-icon">⏸</span></button>';
-  }else if(t.elapsed>0){
-    mainBtn='<button class="tmr-main-btn tmr-main-go" onclick="tmrStart()">'
-      +'<span class="tmr-main-icon">▶</span></button>';
-  }else{
-    mainBtn='<button class="tmr-main-btn tmr-main-go" onclick="tmrStart()">'
-      +'<span class="tmr-main-icon">▶</span></button>';
-  }
-  // 底部按钮行
-  var bottomBtns='';
-  if(t.running){
-    bottomBtns='<button class="tmr-mini-btn tmr-mini-done" onclick="tmrFinishAndCommit()">✨ 完成记入</button>'
-      +'<button class="tmr-mini-btn tmr-mini-reset" onclick="tmrReset()">↺ 重置</button>';
-  }else if(t.elapsed>0){
-    bottomBtns='<button class="tmr-mini-btn tmr-mini-done" onclick="tmrFinishAndCommit()">✨ 完成记入</button>'
-      +'<button class="tmr-mini-btn tmr-mini-reset" onclick="tmrReset()">↺ 重置</button>';
-  }else{
-    bottomBtns='<button class="tmr-mini-btn tmr-mini-reset" onclick="tmrReset()">↺ 重置</button>';
-  }
+  // 三颗小装饰星
+  var sparkles=t.running?'<span class="tmr-sparkle tmr-sp1">✨</span><span class="tmr-sparkle tmr-sp2">⭐</span><span class="tmr-sparkle tmr-sp3">✨</span>':'';
+  // 三按钮常驻
+  var btnsHtml='<div class="tmr-btns-row">'
+    +'<button class="tmr-ctrl tmr-ctrl-play" onclick="tmrStart()" title="开始/继续">'
+      +'<span class="tmr-ctrl-ico">▶</span>'
+      +'<span class="tmr-ctrl-lbl">'+(t.running?'运行中':(t.elapsed>0?'继续':'开始'))+'</span>'
+    +'</button>'
+    +'<button class="tmr-ctrl tmr-ctrl-pause" onclick="tmrPause()" title="暂停"'
+      +'<span class="tmr-ctrl-ico">⏸</span>'
+      +'<span class="tmr-ctrl-lbl">暂停</span>'
+    +'</button>'
+    +'<button class="tmr-ctrl tmr-ctrl-reset" onclick="tmrReset()" title="重置">'
+      +'<span class="tmr-ctrl-ico">↺</span>'
+      +'<span class="tmr-ctrl-lbl">重置</span>'
+    +'</button>'
+    +'</div>'
+    +'<div class="tmr-btns-row2">'
+    +'<button class="tmr-ctrl tmr-ctrl-done" onclick="tmrFinishAndCommit()" title="完成记入">'
+      +'<span class="tmr-ctrl-ico">✨</span>'
+      +'<span class="tmr-ctrl-lbl">完成记入</span>'
+    +'</button>'
+    +'</div>';
   var modeHtml='<div class="tmr-seg">'
     +'<button class="tmr-seg-btn'+(!isPomo?' on':'')+'" onclick="tmrSetMode(\'stopwatch\')"><span class="tmr-seg-emoji">⏱</span>计时器</button>'
     +'<button class="tmr-seg-btn'+(isPomo?' on':'')+'" onclick="tmrSetMode(\'pomodoro\')"><span class="tmr-seg-emoji">🍅</span>番茄钟</button>'
@@ -2535,18 +2523,19 @@ function tmrCardHtml(){
     +'</select></div>';
   var totalMins=tmrCurMins();
   var totalHint=totalMins>0?'<div class="tmr-total-hint">已累计 <b>'+totalMins+'</b> 分钟'+(t.planId?' · 将记入计划':'')+'</div>':'';
-  // 主显示区
+  // 主显示区：大番茄包住时间
   var display='<div class="tmr-display">'
-    +glowHtml
+    +sparkles
+    +'<div class="tmr-tomato '+bounce+'">'
+      +'<span class="tmr-tomato-emoji">'+emoji+'</span>'
+      +'<div class="tmr-tomato-time">'
+        +'<div id="tmr-time" class="tmr-time">'+time+'</div>'
+      +'</div>'
+      +'<div id="tmr-phase" class="tmr-phase">'+phaseTxt+'</div>'
+    +'</div>'
     +ringHtml
-    +'<div class="tmr-display-inner">'
-    +'<div class="tmr-emoji '+bounce+'">'+emoji+'</div>'
-    +'<div id="tmr-time" class="tmr-time">'+time+'</div>'
-    +'<div id="tmr-phase" class="tmr-phase">'+phaseTxt+'</div>'
-    +mainBtn
-    +'</div></div>';
-  return modeHtml+display+pomoCfg+planSel+totalHint
-    +'<div class="tmr-btns-bottom">'+bottomBtns+'</div>';
+    +'</div>';
+  return modeHtml+display+pomoCfg+planSel+totalHint+btnsHtml;
 }
 function tmrInitIfNeeded(){
   // 进入页面时如果计时器在跑，启动循环刷新显示
