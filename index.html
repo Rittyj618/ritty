@@ -177,6 +177,39 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .seg button{flex:1;border:none;cursor:pointer;padding:6px 8px;border-radius:8px;font-size:12px;font-weight:600;
   background:transparent;color:var(--ink-2);transition:all .2s}
 .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(150,130,180,.18)}
+/* ---- 可爱计时器样式 ---- */
+.tmr-seg{display:flex;gap:4px;background:linear-gradient(135deg,#fff5f8,#f0f7ff);padding:4px;border-radius:14px;margin-bottom:8px;border:2px dashed #f0d8e8}
+.tmr-seg-btn{flex:1;border:none;cursor:pointer;padding:8px 10px;border-radius:11px;font-size:13px;font-weight:700;background:transparent;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:4px;transition:all .25s}
+.tmr-seg-btn.on{background:#fff;color:#c9467c;box-shadow:0 2px 8px rgba(255,122,162,.2);transform:scale(1.02)}
+.tmr-seg-emoji{font-size:16px}
+.tmr-display{position:relative;width:170px;height:170px;margin:4px auto;display:flex;align-items:center;justify-content:center}
+.tmr-display-inner{position:relative;z-index:1;text-align:center}
+.tmr-emoji{font-size:42px;line-height:1;display:block;margin-bottom:2px}
+.tmr-bounce{animation:tmrBounce .6s ease-in-out infinite}
+.tmr-idle{animation:none}
+@keyframes tmrBounce{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-6px) rotate(-3deg)}}
+.tmr-time{font-size:34px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-1px;line-height:1;text-shadow:0 2px 8px rgba(255,122,162,.15)}
+.tmr-phase{font-size:12px;color:var(--pink);margin-top:4px;font-weight:600}
+.tmr-face{font-size:14px;color:var(--ink-2);margin-top:2px}
+.tmr-pomo-cfg{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-2);justify-content:center;margin:6px 0 2px;flex-wrap:wrap}
+.tmr-cfg-label{font-weight:600;color:var(--ink-2)}
+.tmr-cfg-sel{font-size:12px;padding:2px 4px;border:1.5px solid var(--line);border-radius:8px;background:#fff}
+.tmr-cfg-sel:disabled{opacity:.5}
+.tmr-cfg-sep{color:var(--line)}
+.tmr-cfg-round{font-weight:700;color:#e56b8a}
+.tmr-plan-sel{margin:8px 0 4px}
+.tmr-plan-label{font-size:11px;color:var(--ink-2);font-weight:600;margin-bottom:4px}
+.tmr-plan-option{width:100%;font-size:12px;padding:6px 8px;border:2px solid var(--line);border-radius:12px;background:linear-gradient(145deg,#faf7ff,#fff);color:var(--ink)}
+.tmr-total-hint{font-size:11px;color:var(--ink-2);margin-top:4px;text-align:center;padding:4px;background:var(--bg);border-radius:10px}
+.tmr-total-hint b{color:var(--pink);font-size:13px}
+.tmr-btns{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.tmr-btn{border:none;cursor:pointer;padding:10px 16px;border-radius:14px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px;transition:all .2s}
+.tmr-btn:active{transform:scale(.95)}
+.tmr-btn-go{background:linear-gradient(135deg,#ff7aa2,#ff5c8d);color:#fff;box-shadow:0 4px 12px rgba(255,122,162,.35)}
+.tmr-btn-pause{background:linear-gradient(135deg,#ffb347,#ff8c42);color:#fff;box-shadow:0 4px 12px rgba(255,180,71,.3)}
+.tmr-btn-done{background:linear-gradient(135deg,#7ed6a5,#4ecb8a);color:#fff;box-shadow:0 4px 12px rgba(78,203,138,.3)}
+.tmr-btn-reset{background:#fff;color:var(--ink-2);border:2px solid var(--line)}
+.tmr-btn-emoji{font-size:15px}
 /* 按钮 */
 .btn{border:none;cursor:pointer;border-radius:99px;padding:9px 16px;font-size:13px;font-weight:700;
   background:linear-gradient(120deg,var(--teal),#7ed6cd);color:#fff;box-shadow:0 4px 10px rgba(94,201,191,.35)}
@@ -1641,7 +1674,15 @@ function dpHtml(p){
   if(p.planId){ var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x}); if(pl) link='<span class="t-tag" title="'+esc(pl.name)+'">🔗'+esc(pl.name.length>6?pl.name.slice(0,6)+'…':pl.name)+'</span>'; }
   var subjTag=(p.subj?'<span class="t-tag">'+subjI(p.subj)+subjN(p.subj).slice(0,2)+'</span>':'');
   var tags=subjTag+link;
-  // 时长信息：实际／预计
+  // 类型标签
+  var typeTag=(p.type==='drill'?'<span class="t-tag" style="background:#fde3ee;color:#d66a8a">✏️做题</span>':'<span class="t-tag" style="background:#e3f5fd;color:#5a9ec9">📚</span>');
+  // 正确率徽章（做题类型且已完成）
+  var accBadge='';
+  if(p.type==='drill' && p.done && p.accuracy>0){
+    var accColor=p.accuracy>=85?'var(--teal-d)':p.accuracy>=70?'#e0a030':'#d96060';
+    accBadge=' <span style="font-size:10px;color:'+accColor+';font-weight:700;white-space:nowrap">'+p.accuracy+'%</span>';
+  }
+  // 时长信息
   var timeHint='';
   if(p.done&&p.actMins*1>0){
     timeHint=' <span style="font-size:10px;color:var(--teal-d);font-weight:500;white-space:nowrap">·⏱'+(p.actMins*1)+'m'+(p.estMins*1>0?'／~'+(p.estMins*1)+'m':'')+'</span>';
@@ -1649,10 +1690,10 @@ function dpHtml(p){
     timeHint=' <span style="font-size:10px;color:var(--ink-2);font-weight:500;white-space:nowrap">·~'+(p.estMins*1)+'m</span>';
   }
   return '<div class="task'+(p.done?' done':'')+'">'
-    +'<div class="ck" style="border-color:var(--pink)'+(p.done?';background:var(--pink)':'')+'" onclick="dpTg(\''+p.id+'\')">'+(p.done?'✓':'')+'</div>'
+    +'<div class="ck" style="border-color:'+(p.type==='drill'?'#e0699e':'var(--pink)')+(p.done?';background:'+(p.type==='drill'?'#e0699e':'var(--pink)'):'')+'" onclick="dpTg(\''+p.id+'\')">'+(p.done?'✓':'')+'</div>'
     +'<div class="t-main">'
-      +'<div class="t-title" onclick="editDayplan(\''+p.id+'\')" style="cursor:pointer">'+esc(p.text)+timeHint+'</div>'
-      +(tags?'<div class="t-tags">'+tags+'</div>':'')
+      +'<div class="t-title" onclick="editDayplan(\''+p.id+'\')" style="cursor:pointer">'+esc(p.text)+accBadge+timeHint+'</div>'
+      +'<div class="t-tags">'+typeTag+tags+'</div>'
     +'</div>'
     +'<button class="del" onclick="dpRm(\''+p.id+'\')">✕</button></div>';
 }
@@ -1961,9 +2002,10 @@ function addDayplan(prefill){
   var planOpts=[{v:'',t:'（不关联学习计划）'}];
   S.exam.plans.forEach(function(p){ planOpts.push({v:p.id,t:subjI(p.subj)+' '+subjN(p.subj)+' · '+(p.type==='course'?'🎬':'✏️')+p.name+'（'+p.done+'/'+p.total+'）'}); });
   showModal('添加每日计划 🗓',[
+    {key:'type',label:'计划类型',type:'select',options:[{v:'drill',t:'✏️ 做题（完成后填正确率）'},{v:'other',t:'📚 其他（网课/复盘/背诵等）'}]},
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正'},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:prefill||''},
-    {key:'n',label:'本次完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1'},
+    {key:'n',label:'完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1'},
     {key:'estMins',label:'预计时长（分钟，选填）',type:'number',ph:'例如：45'},
     {key:'subj',label:'所属科目（不关联计划时填写）',type:'select',options:subjOpts(true)},
     {key:'date',label:'日期',type:'date',value:today()}
@@ -1971,7 +2013,7 @@ function addDayplan(prefill){
     if(!v.text){toast('写点内容嘛～');return false}
     var psubj='', pid=v.plan||'';
     if(pid){ var pl=null; S.exam.plans.forEach(function(p){if(p.id===pid)pl=p}); if(pl) psubj=pl.subj; }
-    S.exam.dayplans.unshift({id:uid(),text:v.text,subj:pid?psubj:v.subj,date:v.date||today(),done:false,planId:pid,n:v.n*1||1,pCounted:false,estMins:(v.estMins||'')*1||0,actMins:0});
+    S.exam.dayplans.unshift({id:uid(),text:v.text,type:v.type||'other',subj:pid?psubj:v.subj,date:v.date||today(),done:false,planId:pid,n:v.n*1||1,pCounted:false,estMins:(v.estMins||'')*1||0,actMins:0,totalCount:0,correctCount:0,accuracy:0});
     render(); toast('计划 +1，已同步首页 ✨');
   });
 }
@@ -1981,15 +2023,17 @@ function editDayplan(id){
   var planOpts=[{v:'',t:'（不关联学习计划）'}];
   S.exam.plans.forEach(function(pl){ planOpts.push({v:pl.id,t:subjI(pl.subj)+' '+subjN(pl.subj)+' · '+(pl.type==='course'?'🎬':'✏️')+pl.name+'（'+pl.done+'/'+pl.total+'）'}); });
   showModal('编辑计划 ✏️',[
+    {key:'type',label:'计划类型',type:'select',options:[{v:'drill',t:'✏️ 做题（完成后填正确率）'},{v:'other',t:'📚 其他（网课/复盘/背诵等）'}],value:p.type||'other'},
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正',value:p.text},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:p.planId||''},
-    {key:'n',label:'本次完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1',value:p.n||1},
+    {key:'n',label:'完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1',value:p.n||1},
     {key:'estMins',label:'预计时长（分钟，选填）',type:'number',ph:'例如：45',value:p.estMins||''},
     {key:'actMins',label:'实际用时（分钟，完成后自动填写，可手动修改）',type:'number',ph:'例如：50',value:p.actMins||''},
     {key:'subj',label:'所属科目（不关联计划时填写）',type:'select',options:subjOpts(true),value:p.subj||''},
     {key:'date',label:'日期',type:'date',value:p.date}
   ],function(v){
     if(!v.text){toast('写点内容嘛～');return false}
+    p.type=v.type||'other';
     var oldPid=p.planId||'', newPid=v.plan||'';
     var wasDone=p.done;
     p.estMins=(v.estMins||'')*1||0;
@@ -2050,39 +2094,95 @@ function dpTg(id){
   var target=null; S.exam.dayplans.forEach(function(p){if(p.id===id)target=p});
   if(!target)return;
   if(!target.done){
-    // 标记为完成：弹窗填实际用时
-    showModal('完成计划 🎉 实际用时？',[
-      {key:'actMins',label:'实际用时（分钟）',type:'number',ph:target.estMins?'填实际分钟数，留空用预计 '+target.estMins+' 分钟':'例如：45'},
-      {key:'note',label:'备注/心得（选填）',ph:'今天感觉怎么样？'}
-    ],function(v){
-      var m=(v.actMins&&v.actMins*1>0)?(v.actMins*1):(target.estMins*1>0?target.estMins*1:0);
-      target.done=true;
-      target.actMins=m;
-      target.finishNote=v.note||'';
-      if(target.planId){
-        var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
-        if(pl&&!target.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(target.n||1)); target.pCounted=true; }
-      }
-      // 同步到 subjTime + checkins
-      if(m>0 && target.subj){
-        if(!S.exam.subjTime)S.exam.subjTime=[];
-        // 删除旧关联记录
-        S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='dayplan'&&s.refId===target.id)});
-        S.exam.subjTime.push({date:target.date||today(),subj:target.subj,mins:m,src:'dayplan',refId:target.id});
-        S.exam.checkins[target.date||today()]=Math.round(subjTimeDayTotal(target.date||today())/60*10)/10;
-      }
-      render(); toast('已完成'+(m>0?('，耗时 '+m+' 分钟 ✨'):' 🎉'));
-      return true;
-    });
+    // 做题类型 vs 其他类型：弹框内容不同
+    if(target.type==='drill'){
+      // 做题：填用时 + 做题数 + 正确数 → 自动算正确率 + 生成记做题记录
+      showModal('✏️ 完成做题任务！',[
+        {key:'totalCount',label:'总共做了多少题',type:'number',ph:'例如：20',value:target.totalCount||''},
+        {key:'correctCount',label:'做对了多少题',type:'number',ph:'例如：16'},
+        {key:'accuracy',label:'正确率',type:'readonly',value:'--',cls:'fld-acc',
+          srcKeys:'totalCount,correctCount',
+          calcFn:'function(vals){var t=(vals.totalCount||0)*1,c=(vals.correctCount||0)*1; if(!t)return"--"; return Math.round(c/t*100)+"%";}'},
+        {key:'actMins',label:'实际用时（分钟）',type:'number',ph:target.estMins?'留空用预计 '+target.estMins+' 分钟':'例如：30'},
+        {key:'note',label:'备注/心得（选填）',ph:'哪里容易错？下次注意～'}
+      ],function(v){
+        var tc=v.totalCount*1, cc=v.correctCount*1;
+        if(!(tc>0)){toast('做题数要大于 0 哦');return false}
+        if(cc>tc){toast('正确数不能超过做题数');return false}
+        var acc=Math.round(cc/tc*100);
+        var m=(v.actMins&&v.actMins*1>0)?(v.actMins*1):(target.estMins*1>0?target.estMins*1:0);
+        target.done=true;
+        target.actMins=m;
+        target.totalCount=tc;
+        target.correctCount=cc;
+        target.accuracy=acc;
+        target.finishNote=v.note||'';
+        if(target.planId){
+          var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
+          if(pl&&!target.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(target.n||1)); target.pCounted=true; }
+        }
+        // 同步到 subjTime + checkins
+        if(m>0 && target.subj){
+          if(!S.exam.subjTime)S.exam.subjTime=[];
+          S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='dayplan'&&s.refId===target.id)});
+          S.exam.subjTime.push({date:target.date||today(),subj:target.subj,mins:m,src:'dayplan',refId:target.id});
+          S.exam.checkins[target.date||today()]=Math.round(subjTimeDayTotal(target.date||today())/60*10)/10;
+        }
+        // 自动生成记做题记录，不用手动填！
+        if(target.subj){
+          var pname='';
+          if(target.planId){
+            var p2=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)p2=x});
+            if(p2) pname=p2.name;
+          }
+          S.exam.drills.push({id:uid(),date:target.date||today(),subj:target.subj,count:tc,correct:cc,minutes:m,source:'',plan:pname});
+        }
+        render(); toast('🎉 正确率 '+acc+'%！已自动记入做题记录，耗时 '+(m||0)+' 分钟 ✨');
+        return true;
+      },'太棒了！');
+    }else{
+      // 其他类型：只填用时
+      showModal('完成计划 🎉 实际用时？',[
+        {key:'actMins',label:'实际用时（分钟）',type:'number',ph:target.estMins?'填实际分钟数，留空用预计 '+target.estMins+' 分钟':'例如：45'},
+        {key:'note',label:'备注/心得（选填）',ph:'今天感觉怎么样？'}
+      ],function(v){
+        var m=(v.actMins&&v.actMins*1>0)?(v.actMins*1):(target.estMins*1>0?target.estMins*1:0);
+        target.done=true;
+        target.actMins=m;
+        target.finishNote=v.note||'';
+        if(target.planId){
+          var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
+          if(pl&&!target.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(target.n||1)); target.pCounted=true; }
+        }
+        if(m>0 && target.subj){
+          if(!S.exam.subjTime)S.exam.subjTime=[];
+          S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='dayplan'&&s.refId===target.id)});
+          S.exam.subjTime.push({date:target.date||today(),subj:target.subj,mins:m,src:'dayplan',refId:target.id});
+          S.exam.checkins[target.date||today()]=Math.round(subjTimeDayTotal(target.date||today())/60*10)/10;
+        }
+        render(); toast('已完成'+(m>0?('，耗时 '+m+' 分钟 ✨'):' 🎉'));
+        return true;
+      });
+    }
   }else{
     // 取消完成：恢复
     target.done=false;
     target.finishNote='';
+    // 如果是做题类型，取消完成时删除自动生成的 dril 记录
+    if(target.type==='drill' && target.subj && target.correctCount>0){
+      // 找最近一条匹配的 drill 记录（同日期同科目同题数）
+      for(var i=S.exam.drills.length-1;i>=0;i--){
+        var d=S.exam.drills[i];
+        if(d.date===target.date && d.subj===target.subj && d.count===target.totalCount && d.correct===target.correctCount){
+          S.exam.drills.splice(i,1); break;
+        }
+      }
+      target.totalCount=0; target.correctCount=0; target.accuracy=0;
+    }
     if(target.planId && target.pCounted){
       var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
       if(pl){ pl.done=Math.max(0,pl.done*1-(target.n||1)); target.pCounted=false; }
     }
-    // 从 subjTime 移除关联记录，重新计算 checkins
     if(target.actMins>0){
       S.exam.subjTime=(S.exam.subjTime||[]).filter(function(s){return !(s.src==='dayplan'&&s.refId===target.id)});
       S.exam.checkins[target.date||today()]=Math.round(subjTimeDayTotal(target.date||today())/60*10)/10;
@@ -2219,13 +2319,14 @@ function tmrLoop(){
       var ring=$('tmr-ring');
       if(ring){
         var p=tmrProgress();
-        var r=52, c=2*Math.PI*r;
-        ring.style.strokeDashoffset=c*(1-p);
+        var r=62, c=2*Math.PI*r;
+        ring.setAttribute('stroke-dashoffset',c*(1-p));
       }
       // 更新状态文字
       var phase=$('tmr-phase');
       if(phase){
-        phase.textContent=t.phase==='work'?'🍅 专注中':'☕ 休息中';
+        var working=t.mode==='pomodoro'&&t.phase==='work';
+        phase.textContent=working?'专注中…加油！':'休息一下～喝口水';
       }
     }else{
       // 元素不存在（切到别的页面），停止循环
@@ -2305,59 +2406,74 @@ function tmrCardHtml(){
   var t=S.timer;
   var time=tmrDisplayTime();
   var isPomo=t.mode==='pomodoro';
-  var phaseTxt = isPomo ? (t.phase==='work'?'🍅 专注中':'☕ 休息中') : '⏱ 计时中';
-  var totalRound = isPomo ? (t.round||0) : 0;
+  var totalRound=isPomo?(t.round||0):0;
+  var working=isPomo&&t.phase==='work';
+  // 可爱表情
+  var emoji=isPomo?(working?'🍅':'☕'):'⏱';
+  var face=isPomo?(working?'(｡•ㅅ•｡)♡':'(⌐■_■)'):'(＾▽＾)';
+  var phaseTxt=isPomo?(working?'专注中…加油！':'休息一下～喝口水'):'计时中…';
+  // 番茄跳动动画样式
+  var bounce=t.running?'tmr-bounce':'tmr-idle';
   // SVG 进度环（仅番茄钟）
   var ringHtml='';
   if(isPomo){
-    var r=52, c=2*Math.PI*r, p=tmrProgress();
-    ringHtml='<svg width="140" height="140" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">'
-      +'<circle cx="70" cy="70" r="'+r+'" fill="none" stroke="#f3effc" stroke-width="6"/>'
-      +'<circle id="tmr-ring" cx="70" cy="70" r="'+r+'" fill="none" stroke="'+(t.phase==='work'?'var(--pink)':'var(--teal)')+'" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+(c*(1-p))+'" transform="rotate(-90 70 70)" style="transition:stroke-dashoffset 1s linear"/>'
+    var r=62, c=2*Math.PI*r, p=tmrProgress();
+    var ringColor=working?'#ff7aa2':'#7ac6e3';
+    ringHtml='<svg width="160" height="160" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">'
+      +'<circle cx="80" cy="80" r="'+r+'" fill="none" stroke="#f8f0ff" stroke-width="8" stroke-linecap="round"/>'
+      +'<circle id="tmr-ring" cx="80" cy="80" r="'+r+'" fill="none" stroke="'+ringColor+'" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+(c*(1-p))+'" transform="rotate(-90 80 80)" style="transition:stroke-dashoffset 1s linear;filter:drop-shadow(0 2px 4px '+ringColor+'66)"/>'
       +'</svg>';
   }
-  // 控制按钮
+  // 控制按钮（可爱圆润风格）
   var btns='';
   if(t.running){
-    btns='<button class="btn sm" onclick="tmrPause()">⏸ 暂停</button>'
-      +'<button class="btn sm pp" onclick="tmrFinishAndCommit()">✓ 完成</button>';
+    btns='<button class="tmr-btn tmr-btn-pause" onclick="tmrPause()"><span class="tmr-btn-emoji">⏸</span>暂停</button>'
+      +'<button class="tmr-btn tmr-btn-done" onclick="tmrFinishAndCommit()"><span class="tmr-btn-emoji">✨</span>完成</button>';
   }else{
-    btns='<button class="btn sm pp" onclick="tmrStart()">▶ '+(t.elapsed>0?'继续':'开始')+'</button>'
-      +(t.elapsed>0?'<button class="btn sm" onclick="tmrFinishAndCommit()">✓ 完成</button>':'')
-      +(t.elapsed>0||t.round>0?'<button class="btn sm ghost" onclick="tmrReset()">↺ 重置</button>':'');
+    btns='<button class="tmr-btn tmr-btn-go" onclick="tmrStart()"><span class="tmr-btn-emoji">▶</span>'+(t.elapsed>0?'继续':'开始')+'</button>'
+      +(t.elapsed>0?'<button class="tmr-btn tmr-btn-done" onclick="tmrFinishAndCommit()"><span class="tmr-btn-emoji">✨</span>完成</button>':'')
+      +(t.elapsed>0||t.round>0?'<button class="tmr-btn tmr-btn-reset" onclick="tmrReset()"><span class="tmr-btn-emoji">↺</span>重置</button>':'');
   }
   // 模式切换
-  var modeHtml='<div class="seg">'
-    +'<button class="'+(!isPomo?'on':'')+'" onclick="tmrSetMode(\'stopwatch\')">⏱ 计时器</button>'
-    +'<button class="'+(isPomo?'on':'')+'" onclick="tmrSetMode(\'pomodoro\')">🍅 番茄钟</button>'
+  var modeHtml='<div class="tmr-seg">'
+    +'<button class="tmr-seg-btn'+(!isPomo?' on':'')+'" onclick="tmrSetMode(\'stopwatch\')"><span class="tmr-seg-emoji">⏱</span>计时器</button>'
+    +'<button class="tmr-seg-btn'+(isPomo?' on':'')+'" onclick="tmrSetMode(\'pomodoro\')"><span class="tmr-seg-emoji">🍅</span>番茄钟</button>'
     +'</div>';
   // 番茄钟设置
   var pomoCfg='';
   if(isPomo){
-    pomoCfg='<div style="display:flex;gap:4px;align-items:center;font-size:11px;color:var(--ink-2);justify-content:center;margin-top:4px">'
-      +'<span>专注</span>'
-      +'<select onchange="tmrSetWorkMins(this.value)" style="font-size:11px;padding:1px 3px"'+(t.running?' disabled':'')+'>'
+    pomoCfg='<div class="tmr-pomo-cfg">'
+      +'<span class="tmr-cfg-label">专注</span>'
+      +'<select onchange="tmrSetWorkMins(this.value)" class="tmr-cfg-sel"'+(t.running?' disabled':'')+'>'
       +[15,20,25,30,40,45,50,60].map(function(m){return '<option value="'+m+'"'+(t.workMins===m?' selected':'')+'>'+m+'m</option>';}).join('')
       +'</select>'
-      +'<span>· 休息 '+t.breakMins+'m · 已完成 🍅 '+totalRound+'</span>'
+      +'<span class="tmr-cfg-sep">·</span>'
+      +'<span class="tmr-cfg-label">休息</span>'
+      +'<b>'+t.breakMins+'</b>'
+      +'<span class="tmr-cfg-sep">·</span>'
+      +'<span class="tmr-cfg-round">🍅 × '+totalRound+'</span>'
       +'</div>';
   }
   // 关联计划
-  var planSel='<div style="margin-top:8px"><select onchange="tmrSetPlan(this.value)" style="width:100%;font-size:11.5px;padding:4px 6px">'
+  var planSel='<div class="tmr-plan-sel">'
+    +'<div class="tmr-plan-label">🎯 关联今日计划</div>'
+    +'<select onchange="tmrSetPlan(this.value)" class="tmr-plan-option">'
     +tmrPlanOpts().map(function(o){return '<option value="'+esc(o.v)+'"'+(t.planId===o.v?' selected':'')+'>'+esc(o.t)+'</option>';}).join('')
     +'</select></div>';
   // 已运行累计时长提示
   var totalMins=tmrCurMins();
-  var totalHint=totalMins>0?'<div style="font-size:10px;color:var(--ink-2);margin-top:4px;text-align:center">本会话已累计 '+totalMins+' 分钟'+(t.planId?' · 将记入关联计划':'')+'</div>':'';
-  // 主显示区
-  var display='<div style="position:relative;width:140px;height:140px;margin:6px auto 2px;display:flex;flex-direction:column;align-items:center;justify-content:center">'
+  var totalHint=totalMins>0?'<div class="tmr-total-hint">已累计 <b>'+totalMins+'</b> 分钟'+(t.planId?' · 将记入计划':'')+'</div>':'';
+  // 主显示区（大数字 + 表情）
+  var display='<div class="tmr-display">'
     +ringHtml
-    +'<div style="position:relative;z-index:1;text-align:center">'
-    +'<div id="tmr-time" style="font-size:30px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-1px">'+time+'</div>'
-    +'<div id="tmr-phase" style="font-size:11px;color:var(--ink-2);margin-top:2px">'+phaseTxt+'</div>'
+    +'<div class="tmr-display-inner">'
+    +'<div class="tmr-emoji '+bounce+'">'+emoji+'</div>'
+    +'<div id="tmr-time" class="tmr-time">'+time+'</div>'
+    +'<div id="tmr-phase" class="tmr-phase">'+phaseTxt+'</div>'
+    +'<div class="tmr-face">'+face+'</div>'
     +'</div></div>';
   return modeHtml+display+pomoCfg+planSel+totalHint
-    +'<div style="display:flex;gap:6px;justify-content:center;margin-top:8px">'+btns+'</div>';
+    +'<div class="tmr-btns">'+btns+'</div>';
 }
 function tmrInitIfNeeded(){
   // 进入页面时如果计时器在跑，启动循环刷新显示
