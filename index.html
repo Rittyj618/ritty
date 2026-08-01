@@ -142,20 +142,19 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .paper-sec-title{font-size:11.5px;color:var(--ink-2);font-weight:700;margin:6px 0 3px;display:flex;align-items:center;gap:4px}
 .paper-sec-title::before,.paper-sec-title::after{content:'';flex:1;height:1.5px;background:repeating-linear-gradient(90deg,#efe4fa 0 4px,transparent 4px 7px)}
 /* 任务 */
-.task{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1.5px dashed var(--line)}
+.task{display:flex;align-items:center;gap:5px;padding:6px 2px;border-bottom:1.5px dashed var(--line);flex-wrap:nowrap}
 .task:last-child{border-bottom:none}
-.task-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
-.task-row1{display:flex;align-items:center;gap:8px;width:100%}
-.task-row2{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.ck{width:22px;height:22px;flex:none;border-radius:8px;border:2px solid var(--teal);background:#fff;
-  display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;cursor:pointer}
+.ck{width:16px;height:16px;flex:none;border-radius:5px;border:2px solid var(--teal);background:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;cursor:pointer}
 .task.done .ck{background:var(--teal);border-color:var(--teal)}
+.t-main{flex:1;min-width:0;display:flex;align-items:center;gap:3px}
 .task.done .t-title{text-decoration:line-through;color:var(--ink-2)}
-.t-title{font-size:14.5px;font-weight:600;color:var(--ink);line-height:1.3}
-.t-tag{font-size:10px;padding:2px 7px;border-radius:99px;background:var(--purple-l);color:#7d5fc9;flex:none}
-.t-date{font-size:10px;color:var(--ink-2);flex:none}
+.t-title{font-size:13px;font-weight:600;color:var(--ink);line-height:1.3;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-tags{display:flex;gap:2px;flex:0 1 auto;min-width:0;overflow:hidden}
+.t-tag{font-size:7.5px;padding:0 3px;border-radius:99px;background:var(--purple-l);color:#7d5fc9;line-height:1.8;white-space:nowrap;max-width:48%;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle}
+.t-date{font-size:9.5px;color:var(--ink-2);flex:none;white-space:nowrap}
 .t-date.over{color:var(--red);font-weight:700}
-.del{border:none;background:none;color:#d9d2e8;font-size:15px;cursor:pointer;padding:2px;flex:none}
+.del{border:none;background:none;color:#d9d2e8;font-size:13px;cursor:pointer;padding:1px;flex:none}
 /* 模块卡片网格 */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
 .mcard{border-radius:var(--r);padding:13px;border:1.5px solid #fff;box-shadow:var(--shadow);cursor:pointer;position:relative;overflow:hidden}
@@ -940,6 +939,7 @@ window.RITTY_FEED = {
 var KEY='ritty-data-v1';
 var DEFAULT_DATA={
   tasks:[],
+  dayStatus:{},
   exam:{v2:1,exams:[],mastery:{},drills:[],plans:[],dayplans:[],mistakes:[],checkins:{},papers:[],recite:[],accu:[],subjTime:[],learned:[],subjGoals:{},norms:[]},
   eng:{goal:20,checkins:{},words:[],practices:[]},
   fit:{workouts:[],weights:[],goal:{weight:'',weekly:150}},
@@ -1136,8 +1136,10 @@ function taskHtml(k){
   var t=today(), over=!k.done&&k.date&&k.date<t;
   return '<div class="task'+(k.done?' done':'')+'">'
     +'<div class="ck" onclick="tgTask(\''+k.id+'\')">'+(k.done?'✓':'')+'</div>'
-    +'<div class="t-title">'+esc(k.title)+'</div>'
-    +'<span class="t-tag">'+MODS[k.mod].ic+MODS[k.mod].n+'</span>'
+    +'<div class="t-main">'
+      +'<div class="t-title">'+esc(k.title)+'</div>'
+      +'<div class="t-tags"><span class="t-tag">'+MODS[k.mod].ic+MODS[k.mod].n+'</span></div>'
+    +'</div>'
     +'<span class="t-date'+(over?' over':'')+'">'+(over?'逾期 ':'')+fmtD(k.date)+'</span>'
     +'<button class="del" onclick="rmTask(\''+k.id+'\')">✕</button></div>';
 }
@@ -1169,6 +1171,96 @@ function modTasksHtml(mod){
   h+= list.length? list.map(taskHtml).join('') : emptyHtml('🌸','还没有任务，添加一个吧');
   return h+'</div>';
 }
+/* ---- 今日状态评估 ---- */
+function statusEmoji(level,kind){
+  var mood=['😫😩','😔','😐','😊','🤩😆'],
+      energy=['💤','🔋','⚡','🚀','🔥'],
+      focus=['🌫️','😴','🧐','🎯','💎'];
+  var set=kind==='m'?mood:kind==='e'?energy:focus;
+  return set[Math.max(0,Math.min(4,(level*1||1)-1))];
+}
+function statusText(level,kind){
+  var mood=['情绪低落','有点不开心','平平淡淡','心情不错','超棒超开心'],
+      energy=['精疲力竭','有点疲惫','正常','精力充沛','元气满满'],
+      focus=['无法专注','容易分心','还可以','比较专注','心流状态'];
+  var set=kind==='m'?mood:kind==='e'?energy:focus;
+  return set[Math.max(0,Math.min(4,(level*1||1)-1))];
+}
+function statusAvg(s){ return s? ((s.mood*1||0)+(s.energy*1||0)+(s.focus*1||0))/3 : 0; }
+function planSuggestion(avg, dps){
+  // 计算预计总时长
+  var planEst=0, planAct=0;
+  (dps||[]).forEach(function(p){ planEst+=p.estMins*1||0; planAct+=p.actMins*1||0; });
+  var bands=[
+    {min:0,max:1.5,label:'💤 今日状态欠佳',hrs:'< 1 h',tip:'只安排最紧急的事，好好休息更重要，状态回来再冲'},
+    {min:1.5,max:2.5,label:'😪 状态偏低',hrs:'1~2 h',tip:'以恢复为主，安排 1~2 小时轻量任务，别逼太紧'},
+    {min:2.5,max:3.5,label:'🙂 状态一般',hrs:'2~3 h',tip:'中等强度 2~3 小时，劳逸结合，记得中间休息'},
+    {min:3.5,max:4.5,label:'✨ 状态不错',hrs:'3~4 h',tip:'状态在线，可以安排 3~4 小时正常学习量'},
+    {min:4.5,max:6,label:'🔥 状态超棒',hrs:'4~6 h',tip:'状态拉满！可以挑战 4~6 小时，抓黄金期多啃点硬骨头'}
+  ];
+  var b=bands[0]; for(var i=0;i<bands.length;i++){ if(avg>=bands[i].min&&avg<bands[i].max){b=bands[i];break;} if(avg>=4.5)b=bands[4]; }
+  var diff='';
+  if(planEst>0){
+    var planH=planEst/60;
+    var match=b.hrs.replace(/[^0-9~\.]/g,'').split('~').map(Number);
+    var recMin=match[0]||0, recMax=match[1]||match[0]||0;
+    if(planH>recMax+0.5) diff='<span style="color:var(--red);font-weight:700">⚠ 安排偏多了，已排 '+Math.round(planH*10)/10+'h，建议精简</span>';
+    else if(planH<recMin-0.5) diff='<span style="color:var(--teal-d);font-weight:700">💪 还可以再加量，已排 '+Math.round(planH*10)/10+'h</span>';
+    else diff='<span style="color:var(--teal-d)">✅ 量刚刚好（已排 '+Math.round(planH*10)/10+'h）</span>';
+  }else{
+    diff='<span style="color:var(--ink-2)">还没安排计划，可参考建议时长：<b style="color:var(--purple-d)">'+b.hrs+'</b></span>';
+  }
+  return {band:b, diff:diff, planEst:planEst, planAct:planAct};
+}
+function dayStatusCard(t,dps){
+  var s=S.dayStatus[t];
+  if(!s){
+    return '<div style="text-align:center;padding:14px 8px">'
+      +'<div style="font-size:14px;margin-bottom:6px">先评估一下今天的状态吧～</div>'
+      +'<div style="font-size:11px;color:var(--ink-2);line-height:1.6">根据状态来安排今日计划量<br>状态好就多学，状态差就休息，才是最高效的节奏</div>'
+      +'<div style="margin-top:8px"><button class="btn pp" onclick="openDayStatus()">开始评估 🎯</button></div></div>';
+  }
+  var avg=statusAvg(s);
+  var ps=planSuggestion(avg,dps);
+  var h='<div style="display:flex;gap:8px;justify-content:space-between;padding:2px 0 6px">';
+  [['m','😊 心情'],['e','⚡ 精力'],['f','🎯 专注']].forEach(function(kv){
+    var key=kv[0]==='m'?'mood':kv[0]==='e'?'energy':'focus';
+    var lv=s[key]*1||1;
+    h+='<div style="flex:1;text-align:center">'
+      +'<div style="font-size:18px;margin-bottom:1px">'+statusEmoji(lv,kv[0])+'</div>'
+      +'<div style="font-size:9.5px;color:var(--ink-2)">'+kv[1]+'</div>'
+      +'<div style="display:flex;gap:1px;justify-content:center;margin-top:2px">'+
+        [1,2,3,4,5].map(function(i){return '<span style="width:7px;height:7px;border-radius:2px;display:inline-block;background:'+(i<=lv?'var(--pink)':'#f3effc')+'"></span>';}).join('')+
+        '</div>'
+      +'<div style="font-size:9px;color:var(--ink-2);margin-top:2px">'+statusText(lv,kv[0])+'</div>'
+    +'</div>';
+  });
+  h+='</div>';
+  // 建议区
+  h+='<div class="dotline"></div>'
+    +'<div style="padding:6px 0 2px">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px">'+ps.band.label+' · 综合分 '+Math.round(avg*10)/10+'／5</div>'
+    +'<div style="font-size:11px;color:var(--ink-2);line-height:1.6;margin-bottom:5px">建议学习时长：<b style="color:var(--purple-d)">'+ps.band.hrs+'</b>　'+ps.band.tip+'</div>'
+    +'<div style="font-size:11px;line-height:1.5">'+ps.diff+'</div>';
+  if(s.note){ h+='<div style="font-size:10.5px;color:var(--ink-2);margin-top:5px;padding:4px 6px;background:var(--purple-l);border-radius:6px;line-height:1.5">📝 '+esc(s.note)+'</div>'; }
+  h+='</div>';
+  return h;
+}
+function openDayStatus(){
+  var t=today(), s=S.dayStatus[t]||{};
+  var mkOpts=function(kind){
+    return [1,2,3,4,5].map(function(i){return {v:i,t:statusEmoji(i,kind)+' '+i+'分 · '+statusText(i,kind)};});
+  };
+  showModal('🌈 评估今日状态',[
+    {key:'mood',label:'😊 心情',type:'select',options:mkOpts('m'),value:s.mood||3},
+    {key:'energy',label:'⚡ 精力',type:'select',options:mkOpts('e'),value:s.energy||3},
+    {key:'focus',label:'🎯 专注度',type:'select',options:mkOpts('f'),value:s.focus||3},
+    {key:'note',type:'textarea',label:'备注 / 今日寄语（选填）',ph:'有没有什么想对自己说的？',value:s.note||''}
+  ],function(v){
+    S.dayStatus[t]={mood:v.mood*1,energy:v.energy*1,focus:v.focus*1,note:v.note||''};
+    render(); toast('状态已记录 🌈');
+  },'保存评估');
+}
 
 /* ================= 首页 ================= */
 function rHome(){
@@ -1189,6 +1281,9 @@ function rHome(){
   list.sort(function(a,b){ return (a.done?1:0)-(b.done?1:0) || (a.date<b.date?-1:1); });
   // 上岸每日计划（同步显示在首页待办区）
   var dps=S.exam.dayplans.filter(function(p){ return p.date===t||(!p.done&&p.date&&p.date<t); });
+  // ========== 今日状态评估 ==========
+  h+=card(rowL('🌈 今日状态评估','<button class="btn sm pp" onclick="openDayStatus()">'+(S.dayStatus[t]?'✏️ 更新':'＋ 评估')+'</button>'),dayStatusCard(t,dps),'anim-slideup');
+  // ========== 今日任务 ==========
   var hasAny=list.length||dps.length;
   var taskBody= hasAny ? list.map(taskHtml).join('')+(dps.length?'<div style="font-size:11px;color:var(--ink-2);margin:10px 0 2px">🌊 上岸 · 今日计划表</div>'+dps.map(dpHtml).join(''):'') : emptyHtml('☁️','今天没有安排，去添加一件小事吧');
   h+=card(rowL('🍭 今天的小事情','<button class="btn sm" onclick="addTask()">＋ 待办</button>'),taskBody,'anim-slideup');
@@ -1530,14 +1625,23 @@ function examDays(e){ return Math.ceil((new Date(e.date)-new Date(today()))/8640
 function dpToday(){ var t=today(); return S.exam.dayplans.filter(function(p){return p.date===t}); }
 function dpHtml(p){
   var link='';
-  if(p.planId){ var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x}); if(pl) link='<span class="t-tag" style="background:var(--purple-l);border-color:var(--purple);color:#7a4fd0">🔗 '+esc(pl.name)+'</span>'; }
-  var subjTag=(p.subj?'<span class="t-tag">'+subjI(p.subj)+' '+subjN(p.subj).slice(0,4)+'</span>':'');
+  if(p.planId){ var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x}); if(pl) link='<span class="t-tag" title="'+esc(pl.name)+'">🔗'+esc(pl.name.length>6?pl.name.slice(0,6)+'…':pl.name)+'</span>'; }
+  var subjTag=(p.subj?'<span class="t-tag">'+subjI(p.subj)+subjN(p.subj).slice(0,2)+'</span>':'');
+  var tags=subjTag+link;
+  // 时长信息：实际／预计
+  var timeHint='';
+  if(p.done&&p.actMins*1>0){
+    timeHint=' <span style="font-size:10px;color:var(--teal-d);font-weight:500;white-space:nowrap">·⏱'+(p.actMins*1)+'m'+(p.estMins*1>0?'／~'+(p.estMins*1)+'m':'')+'</span>';
+  }else if(p.estMins*1>0){
+    timeHint=' <span style="font-size:10px;color:var(--ink-2);font-weight:500;white-space:nowrap">·~'+(p.estMins*1)+'m</span>';
+  }
   return '<div class="task'+(p.done?' done':'')+'">'
     +'<div class="ck" style="border-color:var(--pink)'+(p.done?';background:var(--pink)':'')+'" onclick="dpTg(\''+p.id+'\')">'+(p.done?'✓':'')+'</div>'
-    +'<div class="task-body">'
-      +'<div class="task-row1"><div class="t-title" onclick="editDayplan(\''+p.id+'\')" style="cursor:pointer">'+esc(p.text)+'</div><button class="del" onclick="dpRm(\''+p.id+'\')">✕</button></div>'
-      +'<div class="task-row2">'+subjTag+link+'</div>'
-    +'</div></div>';
+    +'<div class="t-main">'
+      +'<div class="t-title" onclick="editDayplan(\''+p.id+'\')" style="cursor:pointer">'+esc(p.text)+timeHint+'</div>'
+      +(tags?'<div class="t-tags">'+tags+'</div>':'')
+    +'</div>'
+    +'<button class="del" onclick="dpRm(\''+p.id+'\')">✕</button></div>';
 }
 function mediaHtml(o){
   var h='';
@@ -1845,13 +1949,14 @@ function addDayplan(prefill){
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正'},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:prefill||''},
     {key:'n',label:'本次完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1'},
+    {key:'estMins',label:'预计时长（分钟，选填）',type:'number',ph:'例如：45'},
     {key:'subj',label:'所属科目（不关联计划时填写）',type:'select',options:subjOpts(true)},
     {key:'date',label:'日期',type:'date',value:today()}
   ],function(v){
     if(!v.text){toast('写点内容嘛～');return false}
     var psubj='', pid=v.plan||'';
     if(pid){ var pl=null; S.exam.plans.forEach(function(p){if(p.id===pid)pl=p}); if(pl) psubj=pl.subj; }
-    S.exam.dayplans.unshift({id:uid(),text:v.text,subj:pid?psubj:v.subj,date:v.date||today(),done:false,planId:pid,n:v.n*1||1,pCounted:false});
+    S.exam.dayplans.unshift({id:uid(),text:v.text,subj:pid?psubj:v.subj,date:v.date||today(),done:false,planId:pid,n:v.n*1||1,pCounted:false,estMins:(v.estMins||'')*1||0,actMins:0});
     render(); toast('计划 +1，已同步首页 ✨');
   });
 }
@@ -1864,12 +1969,34 @@ function editDayplan(id){
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正',value:p.text},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:p.planId||''},
     {key:'n',label:'本次完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1',value:p.n||1},
+    {key:'estMins',label:'预计时长（分钟，选填）',type:'number',ph:'例如：45',value:p.estMins||''},
+    {key:'actMins',label:'实际用时（分钟，完成后自动填写，可手动修改）',type:'number',ph:'例如：50',value:p.actMins||''},
     {key:'subj',label:'所属科目（不关联计划时填写）',type:'select',options:subjOpts(true),value:p.subj||''},
     {key:'date',label:'日期',type:'date',value:p.date}
   ],function(v){
     if(!v.text){toast('写点内容嘛～');return false}
     var oldPid=p.planId||'', newPid=v.plan||'';
     var wasDone=p.done;
+    p.estMins=(v.estMins||'')*1||0;
+    // 记录旧的实际时长，用于后续同步
+    var oldAct=p.actMins*1||0;
+    var newAct=(v.actMins||'')*1||0;
+    p.actMins=newAct;
+    // 如果实际时长有变化，同步到 subjTime/checkins
+    if(oldAct!==newAct){
+      var ds=p.date||today();
+      var subj=p.subj||(newPid?(function(){var o=null;S.exam.plans.forEach(function(x){if(x.id===newPid)o=x});return o?o.subj:''})():'');
+      if(subj){
+        if(!S.exam.subjTime)S.exam.subjTime=[];
+        // 先删除旧的记录（按计划id关联的）
+        S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='dayplan'&&s.refId===p.id)});
+        if(newAct>0){
+          S.exam.subjTime.push({date:ds,subj:subj,mins:newAct,src:'dayplan',refId:p.id});
+        }
+        // 重新计算当日 checkins（所有 subjTime 的总和）
+        S.exam.checkins[ds]=Math.round(subjTimeDayTotal(ds)/60*10)/10;
+      }
+    }
     // 如果已完成，并且改变了关联计划或数量，需要先从旧计划扣除进度
     if(wasDone && p.pCounted){
       if(oldPid && (!newPid || newPid!==oldPid)){
@@ -1905,21 +2032,62 @@ function editDayplan(id){
   });
 }
 function dpTg(id){
-  S.exam.dayplans.forEach(function(p){
-    if(p.id===id){
-      p.done=!p.done;
-      if(p.planId){
-        var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x});
-        if(pl){
-          if(p.done && !p.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(p.n||1)); p.pCounted=true; }
-          else if(!p.done && p.pCounted){ pl.done=Math.max(0,pl.done*1-(p.n||1)); p.pCounted=false; }
-        }
+  var target=null; S.exam.dayplans.forEach(function(p){if(p.id===id)target=p});
+  if(!target)return;
+  if(!target.done){
+    // 标记为完成：弹窗填实际用时
+    showModal('完成计划 🎉 实际用时？',[
+      {key:'actMins',label:'实际用时（分钟）',type:'number',ph:target.estMins?'填实际分钟数，留空用预计 '+target.estMins+' 分钟':'例如：45'},
+      {key:'note',label:'备注/心得（选填）',ph:'今天感觉怎么样？'}
+    ],function(v){
+      var m=(v.actMins&&v.actMins*1>0)?(v.actMins*1):(target.estMins*1>0?target.estMins*1:0);
+      target.done=true;
+      target.actMins=m;
+      target.finishNote=v.note||'';
+      if(target.planId){
+        var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
+        if(pl&&!target.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(target.n||1)); target.pCounted=true; }
       }
+      // 同步到 subjTime + checkins
+      if(m>0 && target.subj){
+        if(!S.exam.subjTime)S.exam.subjTime=[];
+        // 删除旧关联记录
+        S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='dayplan'&&s.refId===target.id)});
+        S.exam.subjTime.push({date:target.date||today(),subj:target.subj,mins:m,src:'dayplan',refId:target.id});
+        S.exam.checkins[target.date||today()]=Math.round(subjTimeDayTotal(target.date||today())/60*10)/10;
+      }
+      render(); toast('已完成'+(m>0?('，耗时 '+m+' 分钟 ✨'):' 🎉'));
+      return true;
+    });
+  }else{
+    // 取消完成：恢复
+    target.done=false;
+    target.finishNote='';
+    if(target.planId && target.pCounted){
+      var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
+      if(pl){ pl.done=Math.max(0,pl.done*1-(target.n||1)); target.pCounted=false; }
     }
-  });
-  render();
+    // 从 subjTime 移除关联记录，重新计算 checkins
+    if(target.actMins>0){
+      S.exam.subjTime=(S.exam.subjTime||[]).filter(function(s){return !(s.src==='dayplan'&&s.refId===target.id)});
+      S.exam.checkins[target.date||today()]=Math.round(subjTimeDayTotal(target.date||today())/60*10)/10;
+      if(!S.exam.checkins[target.date||today()]) delete S.exam.checkins[target.date||today()];
+    }
+    target.actMins=0;
+    render();
+  }
 }
-function dpRm(id){ S.exam.dayplans=S.exam.dayplans.filter(function(p){return p.id!==id}); render(); }
+function dpRm(id){ 
+  var p=null; S.exam.dayplans.forEach(function(x){if(x.id===id)p=x});
+  if(p&&p.actMins*1>0){
+    S.exam.subjTime=(S.exam.subjTime||[]).filter(function(s){return !(s.src==='dayplan'&&s.refId===id)});
+    var ds=p.date||today();
+    S.exam.checkins[ds]=Math.round(subjTimeDayTotal(ds)/60*10)/10;
+    if(!S.exam.checkins[ds]) delete S.exam.checkins[ds];
+  }
+  S.exam.dayplans=S.exam.dayplans.filter(function(p){return p.id!==id}); 
+  render(); 
+}
 function addPlan(prefill){
   showModal('新建学习计划 📋',[
     {key:'subj',label:'科目',type:'select',options:subjOpts(false),value:prefill||''},
