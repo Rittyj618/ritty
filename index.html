@@ -282,6 +282,14 @@ svg.trend{width:100%;height:110px}
   color:#e0699e;transition:all .25s cubic-bezier(.22,1.4,.36,1);
 }
 .fld-calc.up{color:var(--teal-d);border-color:var(--teal);background:linear-gradient(135deg,var(--teal-l),#fff)}
+/* 行内双字段（预计时长/实际用时等） */
+.fld-row{margin-bottom:11px}
+.fld-row-label{font-size:12px;color:var(--ink-2);display:block;margin-bottom:5px}
+.fld-row-inner{display:flex;gap:8px}
+.fld-row-item{flex:1;min-width:0}
+.fld-row-item label{font-size:11px;color:var(--ink-2);display:block;margin-bottom:3px}
+.fld-row-item input,.fld-row-item select{width:100%;border:2px solid var(--line);border-radius:10px;padding:7px 9px;font-size:13px;background:#fdfbf8;color:var(--ink);outline:none}
+.fld-row-item input:focus,.fld-row-item select:focus{border-color:var(--teal)}
 /* toast */
 #toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:rgba(77,74,92,.92);color:#fff;
   padding:9px 18px;border-radius:99px;font-size:13px;z-index:120;display:none;white-space:nowrap}
@@ -1039,6 +1047,28 @@ function showModal(title,fields,cb,okText){
   mCb=cb;
   var h='<h3>'+esc(title)+'</h3>';
   fields.forEach(function(f){
+    if(f.type==='row'){
+      h+='<div class="fld fld-row">';
+      h+='<div class="fld-row-label">'+esc(f.label||'')+'</div>';
+      h+='<div class="fld-row-inner">';
+      f.fields.forEach(function(sf){
+        h+='<div class="fld-row-item"><label>'+esc(sf.label)+'</label>';
+        if(sf.type==='readonly'||sf.type==='calc'){
+          h+='<div id="mf-'+sf.key+'" class="fld-calc" data-fn="'+esc(sf.calcFn||'')+'" data-src="'+esc(sf.srcKeys||'')+'">'+esc(sf.value||'')+'</div>';
+        }else if(sf.type==='select'){
+          h+='<select id="mf-'+sf.key+'">';
+          sf.options.forEach(function(o){
+            var v=typeof o==='string'?o:o.v, t=typeof o==='string'?o:o.t;
+            h+='<option value="'+esc(v)+'"'+(sf.value===v?' selected':'')+'>'+esc(t)+'</option>';
+          });
+          h+='</select>';
+        }else{
+          h+='<input id="mf-'+sf.key+'" type="'+(sf.type||'text')+'" value="'+esc(sf.value||'')+'" placeholder="'+esc(sf.ph||'')+'">';
+        }
+        h+='</div>';
+      });
+      h+='</div></div>';
+    }else{
     h+='<div class="fld'+(f.cls?' '+f.cls:'')+'"><label>'+esc(f.label)+'</label>';
     if(f.type==='readonly'||f.type==='calc'){
       h+='<div id="mf-'+f.key+'" class="fld-calc" data-fn="'+esc(f.calcFn||'')+'" data-src="'+esc(f.srcKeys||'')+'">'+esc(f.value||'')+'</div>';
@@ -1055,40 +1085,50 @@ function showModal(title,fields,cb,okText){
       h+='<input id="mf-'+f.key+'" type="'+(f.type||'text')+'" value="'+esc(f.value||'')+'" placeholder="'+esc(f.ph||'')+'"'+(f.step?' step="'+f.step+'"':'')+'>';
     }
     h+='</div>';
+    }
   });
   h+='<div class="m-btns"><button class="btn ghost" onclick="closeModal()">取消</button><button class="btn pk" onclick="okModal()">'+(okText||'保存 ♡')+'</button></div>';
   $('modal').innerHTML=h;
   $('modal')._fields=fields;
   // 绑定事件：当源字段变化时，自动重算 readonly/calc 字段
   fields.forEach(function(f){
-    if(f.type==='readonly'||f.type==='calc'){
-      var el=$('mf-'+f.key);
-      if(el&&f.srcKeys&&f.calcFn){
-        var keys=f.srcKeys.split(',');
-        keys.forEach(function(k){
-          var src=$('mf-'+k);
-          if(src){
-            src.addEventListener('input',function(){
-              var vals={};
-              fields.forEach(function(x){ var s=$('mf-'+x.key); if(s)vals[x.key]=s.value; });
-              var result=eval(f.calcFn)(vals);
-              el.textContent=result;
-            });
-          }
-        });
+    var subFs = f.type==='row' ? f.fields : [f];
+    subFs.forEach(function(sf){
+      if(sf.type==='readonly'||sf.type==='calc'){
+        var el=$('mf-'+sf.key);
+        if(el&&sf.srcKeys&&sf.calcFn){
+          var keys=sf.srcKeys.split(',');
+          keys.forEach(function(k){
+            var src=$('mf-'+k);
+            if(src){
+              src.addEventListener('input',function(){
+                var vals={};
+                fields.forEach(function(x){
+                  var subFs2 = x.type==='row' ? x.fields : [x];
+                  subFs2.forEach(function(sx){ var s=$('mf-'+sx.key); if(s)vals[sx.key]=s.value; });
+                });
+                var result=eval(sf.calcFn)(vals);
+                el.textContent=result;
+              });
+            }
+          });
+        }
       }
-    }
+    });
   });
   $('mask').classList.add('on');
 }
 function okModal(){
   var vals={}, fs=$('modal')._fields;
   fs.forEach(function(f){
-    var el=$('mf-'+f.key);
-    if(el){
-      if(f.type==='readonly'||f.type==='calc') vals[f.key]=el.textContent.trim();
-      else vals[f.key]=el.value.trim();
-    }
+    var subFs = f.type==='row' ? f.fields : [f];
+    subFs.forEach(function(sf){
+      var el=$('mf-'+sf.key);
+      if(el){
+        if(sf.type==='readonly'||sf.type==='calc') vals[sf.key]=el.textContent.trim();
+        else vals[sf.key]=el.value.trim();
+      }
+    });
   });
   if(mCb(vals)===false) return;
   closeModal();
@@ -2005,8 +2045,10 @@ function addDayplan(prefill){
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正'},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:prefill||''},
     {key:'n',label:'完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1'},
-    {key:'estMins',label:'预计时长（分钟，选填）',type:'number',ph:'例如：45'},
-    {key:'subj',label:'所属科目（不关联计划时填写）',type:'select',options:subjOpts(true)},
+    {type:'row',label:'时长（分钟，选填）',fields:[
+      {key:'estMins',label:'预计',type:'number',ph:'例如：45'},
+      {key:'subj',label:'所属科目',type:'select',options:subjOpts(true)}
+    ]},
     {key:'date',label:'日期',type:'date',value:today()}
   ],function(v){
     if(!v.text){toast('写点内容嘛～');return false}
@@ -2026,8 +2068,10 @@ function editDayplan(id){
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正',value:p.text},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:p.planId||''},
     {key:'n',label:'完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1',value:p.n||1},
-    {key:'estMins',label:'预计时长（分钟，选填）',type:'number',ph:'例如：45',value:p.estMins||''},
-    {key:'actMins',label:'实际用时（分钟，完成后自动填写，可手动修改）',type:'number',ph:'例如：50',value:p.actMins||''},
+    {type:'row',label:'时长（分钟）',fields:[
+      {key:'estMins',label:'预计',type:'number',ph:'例如：45',value:p.estMins||''},
+      {key:'actMins',label:'实际用时',type:'number',ph:'完成后自动填',value:p.actMins||''}
+    ]},
     {key:'subj',label:'所属科目（不关联计划时填写）',type:'select',options:subjOpts(true),value:p.subj||''},
     {key:'date',label:'日期',type:'date',value:p.date}
   ],function(v){
