@@ -142,13 +142,16 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .paper-sec-title{font-size:11.5px;color:var(--ink-2);font-weight:700;margin:6px 0 3px;display:flex;align-items:center;gap:4px}
 .paper-sec-title::before,.paper-sec-title::after{content:'';flex:1;height:1.5px;background:repeating-linear-gradient(90deg,#efe4fa 0 4px,transparent 4px 7px)}
 /* 任务 */
-.task{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1.5px dashed var(--line)}
+.task{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1.5px dashed var(--line)}
 .task:last-child{border-bottom:none}
+.task-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.task-row1{display:flex;align-items:center;gap:8px;width:100%}
+.task-row2{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ck{width:22px;height:22px;flex:none;border-radius:8px;border:2px solid var(--teal);background:#fff;
   display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;cursor:pointer}
 .task.done .ck{background:var(--teal);border-color:var(--teal)}
 .task.done .t-title{text-decoration:line-through;color:var(--ink-2)}
-.t-title{font-size:14px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-title{font-size:14.5px;font-weight:600;color:var(--ink);line-height:1.3}
 .t-tag{font-size:10px;padding:2px 7px;border-radius:99px;background:var(--purple-l);color:#7d5fc9;flex:none}
 .t-date{font-size:10px;color:var(--ink-2);flex:none}
 .t-date.over{color:var(--red);font-weight:700}
@@ -1528,12 +1531,13 @@ function dpToday(){ var t=today(); return S.exam.dayplans.filter(function(p){ret
 function dpHtml(p){
   var link='';
   if(p.planId){ var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x}); if(pl) link='<span class="t-tag" style="background:var(--purple-l);border-color:var(--purple);color:#7a4fd0">🔗 '+esc(pl.name)+'</span>'; }
+  var subjTag=(p.subj?'<span class="t-tag">'+subjI(p.subj)+' '+subjN(p.subj).slice(0,4)+'</span>':'');
   return '<div class="task'+(p.done?' done':'')+'">'
     +'<div class="ck" style="border-color:var(--pink)'+(p.done?';background:var(--pink)':'')+'" onclick="dpTg(\''+p.id+'\')">'+(p.done?'✓':'')+'</div>'
-    +'<div class="t-title" onclick="editDayplan(\''+p.id+'\')" style="cursor:pointer">'+esc(p.text)+'</div>'
-    +'<span class="t-tag">'+(p.subj?subjI(p.subj)+' '+subjN(p.subj).slice(0,4):'🌊 计划')+'</span>'
-    +link
-    +'<button class="del" onclick="dpRm(\''+p.id+'\')">✕</button></div>';
+    +'<div class="task-body">'
+      +'<div class="task-row1"><div class="t-title" onclick="editDayplan(\''+p.id+'\')" style="cursor:pointer">'+esc(p.text)+'</div><button class="del" onclick="dpRm(\''+p.id+'\')">✕</button></div>'
+      +'<div class="task-row2">'+subjTag+link+'</div>'
+    +'</div></div>';
 }
 function mediaHtml(o){
   var h='';
