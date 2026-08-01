@@ -172,6 +172,11 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .tab{flex:none;border:none;cursor:pointer;padding:7px 13px;border-radius:99px;font-size:12.5px;
   background:#fff;color:var(--ink-2);box-shadow:var(--shadow);display:flex;align-items:center;gap:5px;border:1.5px solid transparent}
 .tab.on{background:linear-gradient(120deg,var(--teal-l),var(--purple-l));color:var(--ink);font-weight:700;border-color:#fff}
+/* 分段切换（计时器模式等） */
+.seg{display:flex;gap:3px;background:var(--bg);padding:3px;border-radius:11px;margin-bottom:6px}
+.seg button{flex:1;border:none;cursor:pointer;padding:6px 8px;border-radius:8px;font-size:12px;font-weight:600;
+  background:transparent;color:var(--ink-2);transition:all .2s}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(150,130,180,.18)}
 /* 按钮 */
 .btn{border:none;cursor:pointer;border-radius:99px;padding:9px 16px;font-size:13px;font-weight:700;
   background:linear-gradient(120deg,var(--teal),#7ed6cd);color:#fff;box-shadow:0 4px 10px rgba(94,201,191,.35)}
@@ -940,6 +945,7 @@ var KEY='ritty-data-v1';
 var DEFAULT_DATA={
   tasks:[],
   dayStatus:{},
+  timer:{mode:'stopwatch',running:false,startTs:0,elapsed:0,planId:'',subj:'',phase:'work',round:0,workMins:25,breakMins:5},
   exam:{v2:1,exams:[],mastery:{},drills:[],plans:[],dayplans:[],mistakes:[],checkins:{},papers:[],recite:[],accu:[],subjTime:[],learned:[],subjGoals:{},norms:[]},
   eng:{goal:20,checkins:{},words:[],practices:[]},
   fit:{workouts:[],weights:[],goal:{weight:'',weekly:150}},
@@ -954,6 +960,10 @@ if(!S) S=JSON.parse(JSON.stringify(DEFAULT_DATA));
 (function fix(){
   var d=DEFAULT_DATA;
   for(var k in d){ if(S[k]===undefined) S[k]=JSON.parse(JSON.stringify(d[k])); }
+  // timer 子字段补齐
+  if(!S.timer) S.timer=JSON.parse(JSON.stringify(d.timer));
+  for(var k in d.timer){ if(S.timer[k]===undefined) S.timer[k]=d.timer[k]; }
+  if(!S.dayStatus) S.dayStatus={};
 })();
 // 上岸模块 v2 迁移（兼容旧数据 & 导入的旧备份）
 function migrateExam(){
@@ -1094,6 +1104,9 @@ function render(){
       if(!_ebs)_ebs=document.querySelectorAll('#exambar .eb');
       for(var i=0;i<_ebs.length;i++)_ebs[i].classList.toggle('on',i===tabState.exam);
     }
+    // 计时器：进入首页时如果运行中，启动刷新循环
+    if(cur==='home' && S.timer.running){ tmrLoop(); }
+    else if(cur!=='home'){ tmrStopLoop(); }
   });
 }
 function tabsHtml(mod,arr){
@@ -1677,6 +1690,8 @@ function rExOv(){
   h+=card(rowL('📝 打卡和记做题','<button class="btn sm" onclick="addDrill()">🧮 记做题</button><button class="btn sm pp" onclick="openTimeLog(\''+t+'\')">📆 打卡</button>'),
     miniStats([{v:dr.c,l:'今日做题',c:'var(--teal-d)'},{v:dr.acc==null?'--':dr.acc+'%',l:'今日正确率',c:'#e0699e'},{v:hrs,l:'今日打卡(时)',c:'#8a68d8'}])
   );
+  // 2.5 专注计时器 / 番茄钟
+  h+=card(rowL('⏱ 专注计时器', S.timer.running ? '<span style="font-size:10px;color:var(--pink);font-weight:600">● 运行中</span>' : ''), tmrCardHtml(), 'anim-slideup');
   // 3. 今日计划
   var dps=dpToday(), doneN=dps.filter(function(p){return p.done}).length;
   h+=card(rowL('🗓 今日计划'+(dps.length?('（'+doneN+'/'+dps.length+'）'):''),'<button class="btn sm pk" onclick="addDayplan()">＋ 计划</button>'),
@@ -2077,7 +2092,7 @@ function dpTg(id){
     render();
   }
 }
-function dpRm(id){ 
+function dpRm(id){
   var p=null; S.exam.dayplans.forEach(function(x){if(x.id===id)p=x});
   if(p&&p.actMins*1>0){
     S.exam.subjTime=(S.exam.subjTime||[]).filter(function(s){return !(s.src==='dayplan'&&s.refId===id)});
@@ -2085,8 +2100,270 @@ function dpRm(id){
     S.exam.checkins[ds]=Math.round(subjTimeDayTotal(ds)/60*10)/10;
     if(!S.exam.checkins[ds]) delete S.exam.checkins[ds];
   }
-  S.exam.dayplans=S.exam.dayplans.filter(function(p){return p.id!==id}); 
-  render(); 
+  S.exam.dayplans=S.exam.dayplans.filter(function(p){return p.id!==id});
+  render();
+}
+/* ---- 专注计时器 / 番茄钟 ---- */
+var tmrTick=null;
+function tmrNow(){ return Date.now(); }
+function tmrCurMins(){
+  // 当前显示的"已完成分钟数"：累计 + 当前running期间
+  var t=S.timer, e=t.elapsed||0;
+  if(t.running) e += tmrNow() - (t.startTs||0);
+  return Math.floor(e/60000);
+}
+function tmrCurSecs(){
+  var t=S.timer, e=t.elapsed||0;
+  if(t.running) e += tmrNow() - (t.startTs||0);
+  return Math.floor(e/1000);
+}
+function tmrRemainSecs(){
+  // 番茄钟模式下，当前阶段的剩余秒数
+  var t=S.timer;
+  if(t.mode!=='pomodoro') return 0;
+  var total=t.phase==='work'?(t.workMins*60):(t.breakMins*60);
+  return Math.max(0, total - tmrCurSecs());
+}
+function tmrDisplayTime(){
+  var t=S.timer;
+  if(t.mode==='pomodoro'){
+    var r=tmrRemainSecs();
+    var m=Math.floor(r/60), s=r%60;
+    return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  }else{
+    var sec=tmrCurSecs();
+    var h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+    return (h>0?(h<10?'0':'')+h+':':'')+(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  }
+}
+function tmrProgress(){
+  var t=S.timer;
+  if(t.mode!=='pomodoro') return 0;
+  var total=(t.phase==='work'?t.workMins:t.breakMins)*60;
+  var cur=tmrCurSecs();
+  return Math.min(1, cur/total);
+}
+function tmrPlanOpts(){
+  var dps=dpToday();
+  var opts=[{v:'',t:'（不关联今日计划）'}];
+  dps.forEach(function(p){
+    var label=(p.done?'✅':'○')+esc(p.text).slice(0,18)+(p.text.length>18?'…':'');
+    if(p.estMins) label+=' ·~'+p.estMins+'m';
+    opts.push({v:p.id, t:label});
+  });
+  return opts;
+}
+function tmrStart(){
+  var t=S.timer;
+  if(t.running) return;
+  t.running=true;
+  t.startTs=tmrNow();
+  tmrSave();
+  tmrLoop();
+}
+function tmrPause(){
+  var t=S.timer;
+  if(!t.running) return;
+  t.elapsed += tmrNow() - (t.startTs||0);
+  t.running=false;
+  t.startTs=0;
+  tmrSave();
+  tmrStopLoop();
+  render();
+}
+function tmrReset(){
+  S.timer.running=false;
+  S.timer.startTs=0;
+  S.timer.elapsed=0;
+  S.timer.phase='work';
+  S.timer.round=0;
+  tmrSave();
+  tmrStopLoop();
+  render();
+}
+function tmrSave(){ save(); }
+function tmrLoop(){
+  tmrStopLoop();
+  tmrTick=setInterval(function(){
+    var t=S.timer;
+    // 番茄钟阶段切换
+    if(t.mode==='pomodoro' && t.running){
+      var remain=tmrRemainSecs();
+      if(remain<=0){
+        // 阶段结束
+        if(t.phase==='work'){
+          // 完成一个番茄：自动记录时长到关联计划/科目
+          tmrCommitWork(t.workMins);
+          t.round=(t.round||0)+1;
+          t.phase='break';
+          t.elapsed=0;
+          t.startTs=tmrNow();
+          toast('🍅 番茄 '+t.workMins+' 分钟完成！休息 '+t.breakMins+' 分钟');
+          // 休息阶段不自动停止，让用户决定
+        }else{
+          t.phase='work';
+          t.elapsed=0;
+          t.startTs=tmrNow();
+          toast('☕ 休息结束，开始下一个番茄');
+        }
+        tmrSave();
+        render();
+        return;
+      }
+    }
+    // 只更新显示，不重新渲染整个页面
+    var el=$('tmr-time');
+    if(el){
+      el.textContent=tmrDisplayTime();
+      // 更新进度环
+      var ring=$('tmr-ring');
+      if(ring){
+        var p=tmrProgress();
+        var r=52, c=2*Math.PI*r;
+        ring.style.strokeDashoffset=c*(1-p);
+      }
+      // 更新状态文字
+      var phase=$('tmr-phase');
+      if(phase){
+        phase.textContent=t.phase==='work'?'🍅 专注中':'☕ 休息中';
+      }
+    }else{
+      // 元素不存在（切到别的页面），停止循环
+      tmrStopLoop();
+    }
+  }, 1000);
+}
+function tmrStopLoop(){
+  if(tmrTick){ clearInterval(tmrTick); tmrTick=null; }
+}
+function tmrCommitWork(mins){
+  var t=S.timer;
+  if(mins<=0) return;
+  var ds=today();
+  // 关联到今日计划
+  if(t.planId){
+    var p=null; S.exam.dayplans.forEach(function(x){if(x.id===t.planId)p=x});
+    if(p){
+      p.actMins=(p.actMins*1||0)+mins;
+      // 同步到 subjTime
+      var subj=p.subj;
+      if(subj){
+        if(!S.exam.subjTime)S.exam.subjTime=[];
+        S.exam.subjTime.push({date:ds,subj:subj,mins:mins,src:'timer',refId:p.id});
+        S.exam.checkins[ds]=Math.round(subjTimeDayTotal(ds)/60*10)/10;
+      }
+      toast('⏱ '+mins+' 分钟已记入计划：'+p.text.slice(0,12));
+      return;
+    }
+  }
+  // 没关联计划，但有科目
+  if(t.subj){
+    if(!S.exam.subjTime)S.exam.subjTime=[];
+    S.exam.subjTime.push({date:ds,subj:t.subj,mins:mins,src:'timer'});
+    S.exam.checkins[ds]=Math.round(subjTimeDayTotal(ds)/60*10)/10;
+    toast('⏱ '+mins+' 分钟已记入打卡');
+  }
+}
+function tmrFinishAndCommit(){
+  // 用户主动"完成并记入"：把当前已运行时长记入
+  var t=S.timer;
+  var mins=tmrCurMins();
+  if(mins<1){
+    toast('时长太短，至少 1 分钟才能记入');
+    return;
+  }
+  tmrCommitWork(mins);
+  tmrReset();
+  render();
+}
+function tmrSetMode(m){
+  if(S.timer.running){ toast('请先暂停当前计时'); return; }
+  S.timer.mode=m;
+  S.timer.elapsed=0;
+  S.timer.phase='work';
+  S.timer.round=0;
+  tmrSave();
+  render();
+}
+function tmrSetPlan(pid){
+  S.timer.planId=pid;
+  // 自动同步科目
+  if(pid){
+    var p=null; S.exam.dayplans.forEach(function(x){if(x.id===pid)p=x});
+    if(p) S.timer.subj=p.subj||S.timer.subj;
+  }
+  tmrSave();
+  render();
+}
+function tmrSetWorkMins(m){
+  if(S.timer.running){ toast('请先暂停'); return; }
+  S.timer.workMins=Math.max(5,Math.min(90,m*1||25));
+  tmrSave();
+  render();
+}
+function tmrCardHtml(){
+  var t=S.timer;
+  var time=tmrDisplayTime();
+  var isPomo=t.mode==='pomodoro';
+  var phaseTxt = isPomo ? (t.phase==='work'?'🍅 专注中':'☕ 休息中') : '⏱ 计时中';
+  var totalRound = isPomo ? (t.round||0) : 0;
+  // SVG 进度环（仅番茄钟）
+  var ringHtml='';
+  if(isPomo){
+    var r=52, c=2*Math.PI*r, p=tmrProgress();
+    ringHtml='<svg width="140" height="140" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">'
+      +'<circle cx="70" cy="70" r="'+r+'" fill="none" stroke="#f3effc" stroke-width="6"/>'
+      +'<circle id="tmr-ring" cx="70" cy="70" r="'+r+'" fill="none" stroke="'+(t.phase==='work'?'var(--pink)':'var(--teal)')+'" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+(c*(1-p))+'" transform="rotate(-90 70 70)" style="transition:stroke-dashoffset 1s linear"/>'
+      +'</svg>';
+  }
+  // 控制按钮
+  var btns='';
+  if(t.running){
+    btns='<button class="btn sm" onclick="tmrPause()">⏸ 暂停</button>'
+      +'<button class="btn sm pp" onclick="tmrFinishAndCommit()">✓ 完成</button>';
+  }else{
+    btns='<button class="btn sm pp" onclick="tmrStart()">▶ '+(t.elapsed>0?'继续':'开始')+'</button>'
+      +(t.elapsed>0?'<button class="btn sm" onclick="tmrFinishAndCommit()">✓ 完成</button>':'')
+      +(t.elapsed>0||t.round>0?'<button class="btn sm ghost" onclick="tmrReset()">↺ 重置</button>':'');
+  }
+  // 模式切换
+  var modeHtml='<div class="seg">'
+    +'<button class="'+(!isPomo?'on':'')+'" onclick="tmrSetMode(\'stopwatch\')">⏱ 计时器</button>'
+    +'<button class="'+(isPomo?'on':'')+'" onclick="tmrSetMode(\'pomodoro\')">🍅 番茄钟</button>'
+    +'</div>';
+  // 番茄钟设置
+  var pomoCfg='';
+  if(isPomo){
+    pomoCfg='<div style="display:flex;gap:4px;align-items:center;font-size:11px;color:var(--ink-2);justify-content:center;margin-top:4px">'
+      +'<span>专注</span>'
+      +'<select onchange="tmrSetWorkMins(this.value)" style="font-size:11px;padding:1px 3px"'+(t.running?' disabled':'')+'>'
+      +[15,20,25,30,40,45,50,60].map(function(m){return '<option value="'+m+'"'+(t.workMins===m?' selected':'')+'>'+m+'m</option>';}).join('')
+      +'</select>'
+      +'<span>· 休息 '+t.breakMins+'m · 已完成 🍅 '+totalRound+'</span>'
+      +'</div>';
+  }
+  // 关联计划
+  var planSel='<div style="margin-top:8px"><select onchange="tmrSetPlan(this.value)" style="width:100%;font-size:11.5px;padding:4px 6px">'
+    +tmrPlanOpts().map(function(o){return '<option value="'+esc(o.v)+'"'+(t.planId===o.v?' selected':'')+'>'+esc(o.t)+'</option>';}).join('')
+    +'</select></div>';
+  // 已运行累计时长提示
+  var totalMins=tmrCurMins();
+  var totalHint=totalMins>0?'<div style="font-size:10px;color:var(--ink-2);margin-top:4px;text-align:center">本会话已累计 '+totalMins+' 分钟'+(t.planId?' · 将记入关联计划':'')+'</div>':'';
+  // 主显示区
+  var display='<div style="position:relative;width:140px;height:140px;margin:6px auto 2px;display:flex;flex-direction:column;align-items:center;justify-content:center">'
+    +ringHtml
+    +'<div style="position:relative;z-index:1;text-align:center">'
+    +'<div id="tmr-time" style="font-size:30px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-1px">'+time+'</div>'
+    +'<div id="tmr-phase" style="font-size:11px;color:var(--ink-2);margin-top:2px">'+phaseTxt+'</div>'
+    +'</div></div>';
+  return modeHtml+display+pomoCfg+planSel+totalHint
+    +'<div style="display:flex;gap:6px;justify-content:center;margin-top:8px">'+btns+'</div>';
+}
+function tmrInitIfNeeded(){
+  // 进入页面时如果计时器在跑，启动循环刷新显示
+  if(S.timer.running){
+    tmrLoop();
+  }
 }
 function addPlan(prefill){
   showModal('新建学习计划 📋',[
