@@ -1417,11 +1417,13 @@ function openDoneHistory(){
         var accTag=(r.kind==='dayplan'&&r.type==='drill'&&r.totalCount>0)?('<span class="pill '+(r.accuracy>=85?'':r.accuracy>=70?'yl':'pk')+'" style="font-size:9px;margin-left:4px">'+r.accuracy+'% · '+r.correctCount+'/'+r.totalCount+'</span>'):'';
         var timeTag=r.actMins>0?('<span style="font-size:10px;color:var(--ink-2);margin-left:4px">⏱'+r.actMins+'m</span>'):'';
         var noteTag=r.note?('<div style="font-size:11px;color:var(--ink-2);margin-top:2px;padding-left:22px">💬 '+esc(r.note)+'</div>'):'';
+        var restoreBtn='<button class="btn sm ghost" style="font-size:10px;padding:2px 8px;flex:none" onclick="restoreDone(\''+r.kind+'\',\''+r.id+'\')">↩️ 恢复</button>';
         h+='<div style="padding:7px 4px;border-bottom:1.5px dashed var(--line);font-size:13px">'
           +'<div style="display:flex;align-items:center;gap:4px">'
           +'<span style="font-size:14px">'+kindIc+'</span>'
           +'<span style="flex:1;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.title||'未命名')+'</span>'
           +typeTag+subjTag+accTag+timeTag
+          +restoreBtn
           +'</div>'+noteTag+'</div>';
       });
     });
@@ -1431,6 +1433,28 @@ function openDoneHistory(){
   $('modal').innerHTML=h;
   $('modal')._fields=[];
   $('mask').classList.add('on');
+}
+
+// 从已完成清单恢复为未完成
+function restoreDone(kind,id){
+  if(kind==='task'){
+    var found=false;
+    S.tasks.forEach(function(k){ if(k.id===id && k.done){ k.done=false; found=true; } });
+    if(!found){ toast('找不到原待办，可能已被删除'); }
+    removeDoneHistory(id);
+  }else if(kind==='dayplan'){
+    var p=null; S.exam.dayplans.forEach(function(x){if(x.id===id)p=x});
+    if(p && p.done){
+      // 调用 dpTg 的取消完成逻辑（会自动 removeDoneHistory）
+      dpTg(id);
+    }else{
+      removeDoneHistory(id);
+      toast('找不到原计划，可能已被删除');
+    }
+  }
+  render();
+  toast('已恢复为未完成 ↩️');
+  openDoneHistory(); // 刷新弹窗
 }
 
 /* ================= 首页 ================= */
