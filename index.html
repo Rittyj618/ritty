@@ -1006,6 +1006,7 @@ var KEY='ritty-data-v1';
 var DEFAULT_DATA={
   tasks:[],
   dayStatus:{},
+  doneHistory:[], // 近5天已完成待办/计划归档（点击「已完成」可查看）
   timer:{mode:'stopwatch',running:false,startTs:0,elapsed:0,planId:'',subj:'',phase:'work',round:0,workMins:25,breakMins:5},
   exam:{v2:1,exams:[],mastery:{},drills:[],plans:[],dayplans:[],mistakes:[],checkins:{},papers:[],recite:[],accu:[],subjTime:[],learned:[],subjGoals:{},norms:[]},
   eng:{goal:20,checkins:{},words:[],practices:[]},
@@ -1238,6 +1239,29 @@ function taskStats(){
   });
   return {todo:td,done:dn,over:ov};
 }
+// 把一条已完成任务/计划归档到 doneHistory（保留近5天）
+function pushDoneHistory(kind,item){
+  if(!S.doneHistory)S.doneHistory=[];
+  S.doneHistory=S.doneHistory.filter(function(x){return x.id!==item.id});
+  var rec={id:item.id,kind:kind,title:item.text||item.title||'',date:item.date||today(),doneAt:today(),
+    mod:item.mod||'',subj:item.subj||'',type:item.type||'',estMins:item.estMins||0,actMins:item.actMins||0,
+    accuracy:item.accuracy||0,totalCount:item.totalCount||0,correctCount:item.correctCount||0,note:item.finishNote||''};
+  S.doneHistory.push(rec);
+  pruneDoneHistory();
+}
+function removeDoneHistory(id){
+  if(!S.doneHistory)return;
+  S.doneHistory=S.doneHistory.filter(function(x){return x.id!==id});
+  pruneDoneHistory();
+}
+// 只保留最近5天（含今天）
+function pruneDoneHistory(){
+  if(!S.doneHistory)return;
+  var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-4); // 含今天共5天
+  var y=cutoff.getFullYear(),m=('0'+(cutoff.getMonth()+1)).slice(-2),dd=('0'+cutoff.getDate()).slice(-2);
+  var minDate=y+'-'+m+'-'+dd;
+  S.doneHistory=S.doneHistory.filter(function(x){return (x.date||'')>=minDate; });
+}
 function taskHtml(k){
   var t=today(), over=!k.done&&k.date&&k.date<t;
   return '<div class="task'+(k.done?' done':'')+'">'
@@ -1249,8 +1273,8 @@ function taskHtml(k){
     +'<span class="t-date'+(over?' over':'')+'">'+(over?'逾期 ':'')+fmtD(k.date)+'</span>'
     +'<button class="del" onclick="rmTask(\''+k.id+'\')">✕</button></div>';
 }
-function tgTask(id){ S.tasks.forEach(function(k){if(k.id===id)k.done=!k.done}); render(); }
-function rmTask(id){ S.tasks=S.tasks.filter(function(k){return k.id!==id}); render(); toast('已删除'); }
+function tgTask(id){ S.tasks.forEach(function(k){if(k.id===id){k.done=!k.done; if(k.done)pushDoneHistory('task',k); else removeDoneHistory(k.id);}}); render(); }
+function rmTask(id){ S.tasks=S.tasks.filter(function(k){return k.id!==id}); removeDoneHistory(id); render(); toast('已删除'); }
 function addTask(mod){
   showModal('添加待办 📝',[
     {key:'title',label:'要做什么呀？',ph:'例如：刷一套行测卷'},
@@ -1368,6 +1392,47 @@ function openDayStatus(){
   },'保存评估');
 }
 
+// 查看近5天已完成待办/计划
+function openDoneHistory(){
+  if(!S.doneHistory) S.doneHistory=[];
+  pruneDoneHistory();
+  var hist=S.doneHistory.slice().sort(function(a,b){ return a.date<b.date?1:(a.date>b.date?-1:0); });
+  var h='<h3>📜 近5天已完成清单</h3>';
+  if(!hist.length){
+    h+='<div style="text-align:center;padding:30px 10px;color:var(--ink-2);font-size:13px">还没有已完成记录哦～<br>打钩完成待办/计划后会自动归档到这里（保留近5天）</div>';
+  }else{
+    // 按日期分组
+    var groups={};
+    hist.forEach(function(r){ if(!groups[r.date])groups[r.date]=[]; groups[r.date].push(r); });
+    Object.keys(groups).sort(function(a,b){return a<b?1:-1;}).forEach(function(d){
+      var isToday=d===today();
+      h+='<div style="margin:10px 0 4px;display:flex;align-items:center;gap:6px">'
+        +'<b style="font-size:12px;color:var(--ink)">'+fmtD(d)+(isToday?'（今天）':'')+'</b>'
+        +'<span class="pill pp" style="font-size:9px">'+groups[d].length+'</span>'
+        +'<div style="flex:1;height:1px;background:var(--line)"></div></div>';
+      groups[d].forEach(function(r){
+        var kindIc=r.kind==='dayplan'?'🌊':'🍭';
+        var typeTag=r.kind==='dayplan'?(r.type==='drill'?'✏️做题':'📚其他'):'';
+        var subjTag=r.subj?('<span class="pill" style="font-size:9px;margin-left:4px">'+subjI(r.subj)+subjN(r.subj).slice(0,2)+'</span>'):'';
+        var accTag=(r.kind==='dayplan'&&r.type==='drill'&&r.totalCount>0)?('<span class="pill '+(r.accuracy>=85?'':r.accuracy>=70?'yl':'pk')+'" style="font-size:9px;margin-left:4px">'+r.accuracy+'% · '+r.correctCount+'/'+r.totalCount+'</span>'):'';
+        var timeTag=r.actMins>0?('<span style="font-size:10px;color:var(--ink-2);margin-left:4px">⏱'+r.actMins+'m</span>'):'';
+        var noteTag=r.note?('<div style="font-size:11px;color:var(--ink-2);margin-top:2px;padding-left:22px">💬 '+esc(r.note)+'</div>'):'';
+        h+='<div style="padding:7px 4px;border-bottom:1.5px dashed var(--line);font-size:13px">'
+          +'<div style="display:flex;align-items:center;gap:4px">'
+          +'<span style="font-size:14px">'+kindIc+'</span>'
+          +'<span style="flex:1;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.title||'未命名')+'</span>'
+          +typeTag+subjTag+accTag+timeTag
+          +'</div>'+noteTag+'</div>';
+      });
+    });
+    h+='<div style="font-size:10px;color:var(--ink-2);text-align:center;margin-top:12px;padding:8px;background:var(--bg);border-radius:10px">💡 仅保留近5天已完成记录，更早的会自动清理</div>';
+  }
+  h+='<div class="m-btns"><button class="btn pk" onclick="closeModal()">知道了</button></div>';
+  $('modal').innerHTML=h;
+  $('modal')._fields=[];
+  $('mask').classList.add('on');
+}
+
 /* ================= 首页 ================= */
 function rHome(){
   var st=taskStats(), t=today();
@@ -1380,7 +1445,7 @@ function rHome(){
   // 今日汇总
   h+='<div class="stat3">'
     +'<div class="stat st-todo"><b>'+st.todo+'</b><i>今日待办</i></div>'
-    +'<div class="stat st-done"><b>'+st.done+'</b><i>已完成</i></div>'
+    +'<div class="stat st-done" style="cursor:pointer" onclick="openDoneHistory()"><b>'+st.done+'</b><i>已完成 · 📜近5天</i></div>'
     +'<div class="stat st-over"><b>'+st.over+'</b><i>逾期事项</i></div></div>';
   // 今日+逾期任务列表（含各模块同步到首页的待办/计划）
   var list=S.tasks.filter(function(k){return (!k.done&&k.date&&k.date<t)||k.date===t});
@@ -2151,6 +2216,7 @@ function editDayplan(id){
       var pl=null; S.exam.plans.forEach(function(x){if(x.id===newPid)pl=x});
       if(pl){ pl.done=Math.min(pl.total*1,pl.done*1+(p.n||1)); p.pCounted=true; }
     }
+    if(p.done) pushDoneHistory('dayplan',p); // 刷新已完成归档快照
     render(); toast('计划已更新 ✏️');
   });
 }
@@ -2181,6 +2247,7 @@ function dpTg(id){
         target.correctCount=cc;
         target.accuracy=acc;
         target.finishNote=v.note||'';
+        pushDoneHistory('dayplan',target);
         if(target.planId){
           var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
           if(pl&&!target.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(target.n||1)); target.pCounted=true; }
@@ -2214,6 +2281,7 @@ function dpTg(id){
         target.done=true;
         target.actMins=m;
         target.finishNote=v.note||'';
+        pushDoneHistory('dayplan',target);
         if(target.planId){
           var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
           if(pl&&!target.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(target.n||1)); target.pCounted=true; }
@@ -2232,6 +2300,7 @@ function dpTg(id){
     // 取消完成：恢复
     target.done=false;
     target.finishNote='';
+    removeDoneHistory(target.id);
     // 如果是做题类型，取消完成时删除自动生成的 dril 记录
     if(target.type==='drill' && target.subj && target.correctCount>0){
       // 找最近一条匹配的 drill 记录（同日期同科目同题数）
@@ -2264,6 +2333,7 @@ function dpRm(id){
     S.exam.checkins[ds]=Math.round(subjTimeDayTotal(ds)/60*10)/10;
     if(!S.exam.checkins[ds]) delete S.exam.checkins[ds];
   }
+  removeDoneHistory(id);
   S.exam.dayplans=S.exam.dayplans.filter(function(p){return p.id!==id});
   render();
 }
