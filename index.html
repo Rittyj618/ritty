@@ -1011,7 +1011,7 @@ var DEFAULT_DATA={
   tasks:[],
   dayStatus:{},
   doneHistory:[], // 近5天已完成待办/计划归档（点击「已完成」可查看）
-  timer:{mode:'stopwatch',running:false,startTs:0,elapsed:0,planId:'',subj:'',phase:'work',round:0,workMins:25,breakMins:5},
+  timer:{mode:'stopwatch',running:false,startTs:0,elapsed:0,planId:'',subj:'',phase:'work',round:0,workMins:25,breakMins:5,committedPlans:{}},
   exam:{v2:1,exams:[],mastery:{},drills:[],plans:[],dayplans:[],mistakes:[],checkins:{},papers:[],recite:[],accu:[],subjTime:[],learned:[],subjGoals:{},norms:[]},
   eng:{goal:20,checkins:{},words:[],practices:[]},
   fit:{workouts:[],weights:[],goal:{weight:'',weekly:150}},
@@ -2502,7 +2502,7 @@ function tmrLoop(){
 function tmrStopLoop(){
   if(tmrTick){ clearInterval(tmrTick); tmrTick=null; }
 }
-function tmrCommitWork(mins){
+function tmrCommitWork(mins, alsoComplete, extraActMinsOverride){
   var t=S.timer;
   if(mins<=0) return;
   var ds=today();
@@ -2510,15 +2510,33 @@ function tmrCommitWork(mins){
   if(t.planId){
     var p=null; S.exam.dayplans.forEach(function(x){if(x.id===t.planId)p=x});
     if(p){
-      p.actMins=(p.actMins*1||0)+mins;
-      // 同步到 subjTime
+      // ---------- 防重复：同一计划 ID 只允许加一次计时时长到 actMins ----------
+      if(!t.committedPlans) t.committedPlans={};
+      var alreadyCommitted = !!t.committedPlans[p.id];
+      // subjTime 和打卡总是同步（保证科目累计准确），但 actMins 只在首次记入时累加
       var subj=p.subj;
       if(subj){
         if(!S.exam.subjTime)S.exam.subjTime=[];
+        // 先清理同一计划之前的 timer 记录（防止重复）
+        S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='timer'&&s.refId===p.id)});
         S.exam.subjTime.push({date:ds,subj:subj,mins:mins,src:'timer',refId:p.id});
         S.exam.checkins[ds]=Math.round(subjTimeDayTotal(ds)/60*10)/10;
       }
-      toast('⏱ '+mins+' 分钟已记入计划：'+p.text.slice(0,12));
+      // actMins：额外传入覆盖值（例如同时完成计划时用累计值）或首次记入时累加
+      if(extraActMinsOverride!==undefined && extraActMinsOverride!==null){
+        p.actMins = Math.max(p.actMins*1||0, extraActMinsOverride*1);
+      } else if(!alreadyCommitted){
+        p.actMins=(p.actMins*1||0)+mins;
+      }
+      t.committedPlans[p.id]=true;
+      // ---------- 同时完成计划 ----------
+      if(alsoComplete && !p.done){
+        _tmrCompleteDayplan(p, mins);
+      }
+      var msg='⏱ '+mins+' 分钟';
+      if(alsoComplete) msg += '，计划已打钩完成';
+      if(alreadyCommitted && extraActMinsOverride===undefined) msg += '（已记入过，时长不重复累加）';
+      toast(msg);
       return;
     }
   }
@@ -2530,6 +2548,42 @@ function tmrCommitWork(mins){
     toast('⏱ '+mins+' 分钟已记入打卡');
   }
 }
+// 把计划标记为完成（复用 dpTg 里的完成逻辑，但避免再次覆盖 actMins）
+function _tmrCompleteDayplan(p, tmrMins){
+  p.done=true;
+  // 如果 actMins 已经被计时填充了一个更大的值，就用那个；否则用计时器
+  p.actMins = Math.max(p.actMins*1||0, tmrMins*1||0);
+  pushDoneHistory('dayplan',p);
+  if(p.planId){
+    var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x});
+    if(pl&&!p.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(p.n||1)); p.pCounted=true; }
+  }
+  var m=p.actMins*1||0;
+  if(m>0 && p.subj){
+    if(!S.exam.subjTime)S.exam.subjTime=[];
+    // 去重：dayplan 只保留一条（最新的）
+    S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='dayplan'&&s.refId===p.id)});
+    S.exam.subjTime.push({date:p.date||today(),subj:p.subj,mins:m,src:'dayplan',refId:p.id});
+    S.exam.checkins[p.date||today()]=Math.round(subjTimeDayTotal(p.date||today())/60*10)/10;
+  }
+  // 做题类型：自动生成 drill 记录
+  if(p.type==='drill' && p.subj && p.totalCount>0 && p.correctCount>=0){
+    var pname='';
+    if(p.planId){
+      var p2=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)p2=x});
+      if(p2) pname=p2.name;
+    }
+    // 防重复：找最近一条匹配的，如果已经存在就不重复加
+    var dup=false;
+    for(var di=S.exam.drills.length-1;di>=0;di--){
+      var dd=S.exam.drills[di];
+      if(dd.date===(p.date||today()) && dd.subj===p.subj && dd.count===p.totalCount && dd.correct===p.correctCount){ dup=true; break; }
+    }
+    if(!dup){
+      S.exam.drills.push({id:uid(),date:p.date||today(),subj:p.subj,count:p.totalCount,correct:p.correctCount,minutes:m,source:'',plan:pname});
+    }
+  }
+}
 function tmrFinishAndCommit(){
   // 用户主动"完成并记入"：把当前已运行时长记入
   var t=S.timer;
@@ -2538,7 +2592,72 @@ function tmrFinishAndCommit(){
     toast('时长太短，至少 1 分钟才能记入');
     return;
   }
-  tmrCommitWork(mins);
+  // 如果关联了今日计划，先询问是否同时完成该计划
+  if(t.planId){
+    var p=null; S.exam.dayplans.forEach(function(x){if(x.id===t.planId)p=x});
+    if(p && !p.done){
+      var planPreview = p.text.length>18 ? p.text.slice(0,18)+'…' : p.text;
+      var alreadyCommitted = t.committedPlans && t.committedPlans[p.id];
+      var hint = '';
+      if(alreadyCommitted) hint='<div style="font-size:11px;color:var(--ink-2);margin-top:4px">⚠️ 该计划之前已记过时长，actMins 不会重复累加哦</div>';
+      if(p.type==='drill'){
+        // 做题类型：完整表单（含题目数、正确数、正确率）
+        showModal('⏱ 计时结束（'+mins+' 分钟）',[
+          {key:'alsoDone',label:'是否同时完成该计划？',type:'select',options:[
+            {v:'yes',t:'✅ 完成并打钩（推荐）'},{v:'no',t:'仅记入时长，不打钩'}
+          ],value:'yes'},
+          {key:'totalCount',label:'总共做了多少题',type:'number',ph:'例如：20',value:p.totalCount||''},
+          {key:'correctCount',label:'做对了多少题',type:'number',ph:'例如：16',value:p.correctCount||''},
+          {key:'accuracy',label:'正确率',type:'readonly',value:'--',cls:'fld-acc',
+            srcKeys:'totalCount,correctCount',
+            calcFn:'function(vals){var t=(vals.totalCount||0)*1,c=(vals.correctCount||0)*1; if(!t)return"--"; return Math.round(c/t*100)+"%";}'},
+          {key:'note',label:'备注/心得（选填）',ph:'哪里容易错？下次注意～'}
+        ],function(v){
+          var tc=v.totalCount*1, cc=v.correctCount*1;
+          if(v.alsoDone==='yes'){
+            if(!(tc>0)){toast('做题数要大于 0 哦');return false}
+            if(cc>tc){toast('正确数不能超过做题数');return false}
+            p.totalCount=tc; p.correctCount=cc; p.accuracy=Math.round(cc/tc*100);
+            p.finishNote=v.note||'';
+          }
+          tmrCommitWork(mins, v.alsoDone==='yes');
+          tmrReset();
+          render();
+          if(v.alsoDone==='yes' && p.accuracy>0){ toast('🎉 正确率 '+p.accuracy+'%，已自动记入做题记录 ✨'); }
+          return true;
+        },'记入完成');
+      } else {
+        // 其他类型：简单确认
+        mCb=null;
+        $('modal').innerHTML='<h3>⏱ 计时结束（'+mins+' 分钟）</h3>'
+          +'<p style="font-size:13px;color:var(--ink);text-align:center;padding:6px 4px 10px">关联计划：<b style="color:var(--purple)">'+esc(planPreview)+'</b></p>'
+          +hint
+          +'<div class="m-btns"><button class="btn ghost" onclick="closeModal();toast(\'已取消\')">仅记入时长</button><button class="btn pk" id="m-yes">✅ 同时完成该计划</button></div>';
+        $('m-yes').onclick=function(){
+          closeModal();
+          tmrCommitWork(mins, true);
+          tmrReset();
+          render();
+        };
+        // "仅记入时长" 的按钮也绑定实际行为
+        setTimeout(function(){
+          var btns=$('modal').querySelectorAll('.btn.ghost');
+          if(btns&&btns[0]){
+            btns[0].onclick=function(){
+              closeModal();
+              tmrCommitWork(mins, false);
+              tmrReset();
+              render();
+            };
+          }
+        },0);
+        $('mask').classList.add('on');
+      }
+      return;
+    }
+  }
+  // 未关联计划，或计划已完成：直接记入
+  tmrCommitWork(mins, false);
   tmrReset();
   render();
 }
