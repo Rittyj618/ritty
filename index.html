@@ -305,6 +305,7 @@ svg.trend{width:100%;height:110px}
 .fld-row-item label{font-size:11px;color:var(--ink-2);display:block;margin-bottom:3px}
 .fld-row-item input,.fld-row-item select{width:100%;border:2px solid var(--line);border-radius:10px;padding:7px 9px;font-size:13px;background:#fdfbf8;color:var(--ink);outline:none}
 .fld-row-item input:focus,.fld-row-item select:focus{border-color:var(--teal)}
+.fld-row-item:has(.fld-calc){flex:0.7;min-width:auto}
 /* toast */
 #toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:rgba(77,74,92,.92);color:#fff;
   padding:9px 18px;border-radius:99px;font-size:13px;z-index:120;display:none;white-space:nowrap}
@@ -1419,7 +1420,7 @@ function openDoneHistory(){
         var typeTag=r.kind==='dayplan'?(r.type==='drill'?'<span class="pill" style="font-size:9px" title="做题">✏️</span>':'<span class="pill" style="font-size:9px" title="其他">📚</span>'):'';
         var subjTag=r.subj?('<span class="pill" style="font-size:9px;margin-left:4px" title="'+subjN(r.subj)+'">'+subjI(r.subj)+'</span>'):'';
         var accTag=(r.kind==='dayplan'&&r.type==='drill'&&r.totalCount>0)?('<span class="pill '+(r.accuracy>=85?'':r.accuracy>=70?'yl':'pk')+'" style="font-size:9px;margin-left:4px">'+r.accuracy+'% · '+r.correctCount+'/'+r.totalCount+'</span>'):'';
-        var timeTag=r.actMins>0?('<span style="font-size:10px;color:var(--ink-2);margin-left:4px">⏱'+r.actMins+'m</span>'):'';
+        var timeTag=r.actMins>0?('<span style="font-size:10px;color:var(--ink-2);margin-left:4px">⏱'+fmtHM(r.actMins)+'</span>'):'';
         var noteTag=r.note?('<div style="font-size:11px;color:var(--ink-2);margin-top:2px;padding-left:22px">💬 '+esc(r.note)+'</div>'):'';
         var restoreBtn='<button class="btn sm ghost" style="font-size:10px;padding:2px 8px;flex:none" onclick="restoreDone(\''+r.kind+'\',\''+r.id+'\')">↩️ 恢复</button>';
         h+='<div style="padding:7px 4px;border-bottom:1.5px dashed var(--line);font-size:13px">'
@@ -1549,6 +1550,34 @@ function resetData(){
     S=JSON.parse(JSON.stringify(DEFAULT_DATA));
     save(); render(); toast('已清空，全新开始 🌱');
   });
+}
+/* ---- 时长辅助：小时/分钟下拉 + 格式化 ---- */
+function tmrHOpts(){
+  var a=[{v:'0',t:'0 时'}];
+  for(var i=1;i<=12;i++) a.push({v:String(i),t:i+' 时'});
+  return a;
+}
+function tmrMOpts(){
+  var a=[];
+  for(var i=0;i<60;i+=5) a.push({v:String(i),t:i+' 分'});
+  a.push({v:'1',t:'1 分'},{v:'2',t:'2 分'},{v:'3',t:'3 分'},{v:'4',t:'4 分'});
+  a.push({v:'6',t:'6 分'},{v:'7',t:'7 分'},{v:'8',t:'8 分'},{v:'9',t:'9 分'});
+  a.sort(function(x,y){return x.v*1-y.v*1});
+  return a;
+}
+// minutes -> "Xh Ym" or "Ym" or ""
+function fmtHM(mins){
+  mins=(mins*1)||0;
+  if(mins<=0) return '';
+  var h=Math.floor(mins/60), m=mins%60;
+  if(h>0 && m>0) return h+'h'+m+'m';
+  if(h>0) return h+'h';
+  return m+'m';
+}
+// 从总分钟数反推 h/m 两个下拉的初值
+function splitHM(total){
+  total=(total*1)||0;
+  return {h:String(Math.floor(total/60)), m:String(total%60)};
 }
 
 /* ================= 1. 上岸（公考工作台） ================= */
@@ -1713,13 +1742,19 @@ function subjTimeWeek(k){
 }
 function addSubjTime(k){
   showModal('记录「'+subjN(k)+'」学习时长 ⏱️',[
-    {key:'mins',label:'学习时长（分钟）',type:'number',ph:'90'},
+    {type:'row',label:'学习时长',fields:[
+      {key:'h',label:'小时',type:'select',options:tmrHOpts(),value:'0'},
+      {key:'m',label:'分钟',type:'select',options:tmrMOpts(),value:'0'},
+      {key:'total',label:'合计',type:'readonly',value:'0 分',cls:'fld-acc',
+        srcKeys:'h,m',
+        calcFn:'function(vals){var h=(vals.h||0)*1,m=(vals.m||0)*1;return (h*60+m)+" 分";}'}
+    ]},
     {key:'date',label:'日期',type:'date',value:today()}
   ],function(v){
-    var m=v.mins*1; if(!(m>0)){toast('时长要大于0哦');return false}
+    var m=(v.h*1||0)*60+(v.m*1||0); if(!(m>0)){toast('时长要大于0哦');return false}
     if(!S.exam.subjTime)S.exam.subjTime=[];
     S.exam.subjTime.push({date:v.date||today(),subj:k,mins:m});
-    render(); toast('已记录 '+m+' 分钟 ⏱️');
+    render(); toast('已记录 '+fmtHM(m)+' ⏱️');
   });
 }
 function planCardHtml(p){
@@ -1839,10 +1874,11 @@ function dpHtml(p){
   }
   // 时长信息
   var timeHint='';
+  var est=fmtHM(p.estMins), act=fmtHM(p.actMins);
   if(p.done&&p.actMins*1>0){
-    timeHint=' <span style="font-size:10px;color:var(--teal-d);font-weight:500;white-space:nowrap">·⏱'+(p.actMins*1)+'m'+(p.estMins*1>0?'／~'+(p.estMins*1)+'m':'')+'</span>';
+    timeHint=' <span style="font-size:10px;color:var(--teal-d);font-weight:500;white-space:nowrap">·⏱'+act+(p.estMins*1>0?'／~'+est:'')+'</span>';
   }else if(p.estMins*1>0){
-    timeHint=' <span style="font-size:10px;color:var(--ink-2);font-weight:500;white-space:nowrap">·~'+(p.estMins*1)+'m</span>';
+    timeHint=' <span style="font-size:10px;color:var(--ink-2);font-weight:500;white-space:nowrap">·~'+est+'</span>';
   }
   return '<div class="task'+(p.done?' done':'')+'">'
     +'<div class="ck" style="border-color:'+(p.type==='drill'?'#e0699e':'var(--pink)')+(p.done?';background:'+(p.type==='drill'?'#e0699e':'var(--pink)'):'')+'" onclick="dpTg(\''+p.id+'\')">'+(p.done?'✓':'')+'</div>'
@@ -1924,7 +1960,7 @@ function rExOv(){
   var allM=subjTimeAll(), weekM=subjTimeWeekTotal();
   var chartLabel={w:'近 7 天每日学习时长',m:'近 30 天每日学习时长',y:'近 12 个月每月学习时长'}[exChart];
   h+=card(rowL('⏱️ 学习时长','<button class="btn sm ghost" onclick="openTimeLog(today())">＋ 记时长</button>'),
-    miniStats([{v:allM,l:'累计分钟',c:'var(--teal-d)'},{v:weekM,l:'本周分钟',c:'#8a68d8'}])
+    miniStats([{v:fmtHM(allM),l:'累计时长',c:'var(--teal-d)'},{v:fmtHM(weekM),l:'本周时长',c:'#8a68d8'}])
     +'<div style="margin-top:12px">'+lineSvg(timeLineData(exChart).vals,timeLineData(exChart).labels,'#5ec9bf')+'</div>'
     +'<p style="text-align:center;font-size:11px;color:var(--ink-2);margin-top:4px">'+chartLabel+'</p>'
     +'<div style="text-align:center;margin-top:8px">'+pills([{ck:"exChart='w';render()",t:'周',on:exChart==='w'},{ck:"exChart='m';render()",t:'月',on:exChart==='m'},{ck:"exChart='y';render()",t:'年',on:exChart==='y'}])+'</div>'
@@ -1936,7 +1972,7 @@ function rExOv(){
     +pieSvg(subjPieData(exPieMode))
     +'<div style="margin-top:14px"><b style="font-size:12px;display:block;margin-bottom:8px">📝 做题记录报表</b>'
     +'<div class="report-head"><span>科目</span><span>题数</span><span>正确率</span><span>时长</span></div>'
-    +reps.map(function(x){return '<div class="report-row"><span><b style="color:'+SUBJ_COLOR[x.k]+'">'+x.ic+' '+x.n+'</b></span><span>'+x.c+'</span><span>'+(x.acc==null?'--':x.acc+'%')+'</span><span>'+x.mins+'分</span></div>';}).join('')
+    +reps.map(function(x){return '<div class="report-row"><span><b style="color:'+SUBJ_COLOR[x.k]+'">'+x.ic+' '+x.n+'</b></span><span>'+x.c+'</span><span>'+(x.acc==null?'--':x.acc+'%')+'</span><span>'+fmtHM(x.mins)+'</span></div>';}).join('')
   );
   return h;
 }
@@ -2156,21 +2192,27 @@ function rmDrill(id){ S.exam.drills=S.exam.drills.filter(function(d){return d.id
 function addDayplan(prefill){
   var planOpts=[{v:'',t:'（不关联学习计划）'}];
   S.exam.plans.forEach(function(p){ planOpts.push({v:p.id,t:subjI(p.subj)+' '+subjN(p.subj)+' · '+(p.type==='course'?'🎬':'✏️')+p.name+'（'+p.done+'/'+p.total+'）'}); });
+  var hm=splitHM(0);
   showModal('添加每日计划 🗓',[
     {key:'type',label:'计划类型',type:'select',options:[{v:'drill',t:'✏️ 做题（完成后填正确率）'},{v:'other',t:'📚 其他（网课/复盘/背诵等）'}]},
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正'},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:prefill||''},
     {key:'n',label:'完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1'},
-    {type:'row',label:'时长（分钟，选填）',fields:[
-      {key:'estMins',label:'预计',type:'number',ph:'例如：45'},
-      {key:'subj',label:'所属科目',type:'select',options:subjOpts(true)}
+    {type:'row',label:'预计时长',fields:[
+      {key:'estH',label:'小时',type:'select',options:tmrHOpts(),value:hm.h},
+      {key:'estM',label:'分钟',type:'select',options:tmrMOpts(),value:hm.m},
+      {key:'estTotal',label:'合计',type:'readonly',value:'0 分',cls:'fld-acc',
+        srcKeys:'estH,estM',
+        calcFn:'function(vals){var h=(vals.estH||0)*1,m=(vals.estM||0)*1;return (h*60+m)+" 分";}'}
     ]},
+    {key:'subj',label:'所属科目',type:'select',options:subjOpts(true)},
     {key:'date',label:'日期',type:'date',value:today()}
   ],function(v){
     if(!v.text){toast('写点内容嘛～');return false}
     var psubj='', pid=v.plan||'';
     if(pid){ var pl=null; S.exam.plans.forEach(function(p){if(p.id===pid)pl=p}); if(pl) psubj=pl.subj; }
-    S.exam.dayplans.unshift({id:uid(),text:v.text,type:v.type||'other',subj:pid?psubj:v.subj,date:v.date||today(),done:false,planId:pid,n:v.n*1||1,pCounted:false,estMins:(v.estMins||'')*1||0,actMins:0,totalCount:0,correctCount:0,accuracy:0});
+    var estTotal=(v.estH*1||0)*60+(v.estM*1||0);
+    S.exam.dayplans.unshift({id:uid(),text:v.text,type:v.type||'other',subj:pid?psubj:v.subj,date:v.date||today(),done:false,planId:pid,n:v.n*1||1,pCounted:false,estMins:estTotal,actMins:0,totalCount:0,correctCount:0,accuracy:0});
     render(); toast('计划 +1，已同步首页 ✨');
   });
 }
@@ -2179,14 +2221,26 @@ function editDayplan(id){
   if(!p)return;
   var planOpts=[{v:'',t:'（不关联学习计划）'}];
   S.exam.plans.forEach(function(pl){ planOpts.push({v:pl.id,t:subjI(pl.subj)+' '+subjN(pl.subj)+' · '+(pl.type==='course'?'🎬':'✏️')+pl.name+'（'+pl.done+'/'+pl.total+'）'}); });
+  var estHM=splitHM(p.estMins);
+  var actHM=splitHM(p.actMins);
   showModal('编辑计划 ✏️',[
     {key:'type',label:'计划类型',type:'select',options:[{v:'drill',t:'✏️ 做题（完成后填正确率）'},{v:'other',t:'📚 其他（网课/复盘/背诵等）'}],value:p.type||'other'},
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正',value:p.text},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:p.planId||''},
     {key:'n',label:'完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1',value:p.n||1},
-    {type:'row',label:'时长（分钟）',fields:[
-      {key:'estMins',label:'预计',type:'number',ph:'例如：45',value:p.estMins||''},
-      {key:'actMins',label:'实际用时',type:'number',ph:'完成后自动填',value:p.actMins||''}
+    {type:'row',label:'预计时长',fields:[
+      {key:'estH',label:'小时',type:'select',options:tmrHOpts(),value:estHM.h},
+      {key:'estM',label:'分钟',type:'select',options:tmrMOpts(),value:estHM.m},
+      {key:'estTotal',label:'合计',type:'readonly',value:(p.estMins||0)+' 分',cls:'fld-acc',
+        srcKeys:'estH,estM',
+        calcFn:'function(vals){var h=(vals.estH||0)*1,m=(vals.estM||0)*1;return (h*60+m)+" 分";}'}
+    ]},
+    {type:'row',label:'实际用时',fields:[
+      {key:'actH',label:'小时',type:'select',options:tmrHOpts(),value:actHM.h},
+      {key:'actM',label:'分钟',type:'select',options:tmrMOpts(),value:actHM.m},
+      {key:'actTotal',label:'合计',type:'readonly',value:(p.actMins||0)+' 分',cls:'fld-acc',
+        srcKeys:'actH,actM',
+        calcFn:'function(vals){var h=(vals.actH||0)*1,m=(vals.actM||0)*1;return (h*60+m)+" 分";}'}
     ]},
     {key:'subj',label:'所属科目（不关联计划时填写）',type:'select',options:subjOpts(true),value:p.subj||''},
     {key:'date',label:'日期',type:'date',value:p.date}
@@ -2195,10 +2249,10 @@ function editDayplan(id){
     p.type=v.type||'other';
     var oldPid=p.planId||'', newPid=v.plan||'';
     var wasDone=p.done;
-    p.estMins=(v.estMins||'')*1||0;
+    p.estMins=(v.estH*1||0)*60+(v.estM*1||0);
     // 记录旧的实际时长，用于后续同步
     var oldAct=p.actMins*1||0;
-    var newAct=(v.actMins||'')*1||0;
+    var newAct=(v.actH*1||0)*60+(v.actM*1||0);
     p.actMins=newAct;
     // 如果实际时长有变化，同步到 subjTime/checkins
     if(oldAct!==newAct){
@@ -2255,6 +2309,7 @@ function dpTg(id){
   if(!target)return;
   if(!target.done){
     // 做题类型 vs 其他类型：弹框内容不同
+    var estHM=splitHM(target.estMins);
     if(target.type==='drill'){
       // 做题：填用时 + 做题数 + 正确数 → 自动算正确率 + 生成记做题记录
       showModal('✏️ 完成做题任务！',[
@@ -2263,14 +2318,20 @@ function dpTg(id){
         {key:'accuracy',label:'正确率',type:'readonly',value:'--',cls:'fld-acc',
           srcKeys:'totalCount,correctCount',
           calcFn:'function(vals){var t=(vals.totalCount||0)*1,c=(vals.correctCount||0)*1; if(!t)return"--"; return Math.round(c/t*100)+"%";}'},
-        {key:'actMins',label:'实际用时（分钟）',type:'number',ph:target.estMins?'留空用预计 '+target.estMins+' 分钟':'例如：30'},
+        {type:'row',label:'实际用时（留空用预计）',fields:[
+          {key:'actH',label:'小时',type:'select',options:tmrHOpts(),value:estHM.h},
+          {key:'actM',label:'分钟',type:'select',options:tmrMOpts(),value:estHM.m},
+          {key:'actTotal',label:'合计',type:'readonly',value:'0 分',cls:'fld-acc',
+            srcKeys:'actH,actM',
+            calcFn:'function(vals){var h=(vals.actH||0)*1,m=(vals.actM||0)*1;return (h*60+m)+" 分";}'}
+        ]},
         {key:'note',label:'备注/心得（选填）',ph:'哪里容易错？下次注意～'}
       ],function(v){
         var tc=v.totalCount*1, cc=v.correctCount*1;
         if(!(tc>0)){toast('做题数要大于 0 哦');return false}
         if(cc>tc){toast('正确数不能超过做题数');return false}
         var acc=Math.round(cc/tc*100);
-        var m=(v.actMins&&v.actMins*1>0)?(v.actMins*1):(target.estMins*1>0?target.estMins*1:0);
+        var m=(v.actH*1||0)*60+(v.actM*1||0);
         target.done=true;
         target.actMins=m;
         target.totalCount=tc;
@@ -2298,16 +2359,22 @@ function dpTg(id){
           }
           S.exam.drills.push({id:uid(),date:target.date||today(),subj:target.subj,count:tc,correct:cc,minutes:m,source:'',plan:pname});
         }
-        render(); toast('🎉 正确率 '+acc+'%！已自动记入做题记录，耗时 '+(m||0)+' 分钟 ✨');
+        render(); toast('🎉 正确率 '+acc+'%！已自动记入做题记录，耗时 '+fmtHM(m)+' ✨');
         return true;
       },'太棒了！');
     }else{
       // 其他类型：只填用时
       showModal('完成计划 🎉 实际用时？',[
-        {key:'actMins',label:'实际用时（分钟）',type:'number',ph:target.estMins?'填实际分钟数，留空用预计 '+target.estMins+' 分钟':'例如：45'},
+        {type:'row',label:'实际用时',fields:[
+          {key:'actH',label:'小时',type:'select',options:tmrHOpts(),value:estHM.h},
+          {key:'actM',label:'分钟',type:'select',options:tmrMOpts(),value:estHM.m},
+          {key:'actTotal',label:'合计',type:'readonly',value:'0 分',cls:'fld-acc',
+            srcKeys:'actH,actM',
+            calcFn:'function(vals){var h=(vals.actH||0)*1,m=(vals.actM||0)*1;return (h*60+m)+" 分";}'}
+        ]},
         {key:'note',label:'备注/心得（选填）',ph:'今天感觉怎么样？'}
       ],function(v){
-        var m=(v.actMins&&v.actMins*1>0)?(v.actMins*1):(target.estMins*1>0?target.estMins*1:0);
+        var m=(v.actH*1||0)*60+(v.actM*1||0);
         target.done=true;
         target.actMins=m;
         target.finishNote=v.note||'';
@@ -2322,7 +2389,7 @@ function dpTg(id){
           S.exam.subjTime.push({date:target.date||today(),subj:target.subj,mins:m,src:'dayplan',refId:target.id});
           S.exam.checkins[target.date||today()]=Math.round(subjTimeDayTotal(target.date||today())/60*10)/10;
         }
-        render(); toast('已完成'+(m>0?('，耗时 '+m+' 分钟 ✨'):' 🎉'));
+        render(); toast('已完成'+(m>0?('，耗时 '+fmtHM(m)+' ✨'):' 🎉'));
         return true;
       });
     }
@@ -2533,7 +2600,7 @@ function tmrCommitWork(mins, alsoComplete, extraActMinsOverride){
       if(alsoComplete && !p.done){
         _tmrCompleteDayplan(p, mins);
       }
-      var msg='⏱ '+mins+' 分钟';
+      var msg='⏱ '+fmtHM(mins);
       if(alsoComplete) msg += '，计划已打钩完成';
       if(alreadyCommitted && extraActMinsOverride===undefined) msg += '（已记入过，时长不重复累加）';
       toast(msg);
@@ -2545,7 +2612,7 @@ function tmrCommitWork(mins, alsoComplete, extraActMinsOverride){
     if(!S.exam.subjTime)S.exam.subjTime=[];
     S.exam.subjTime.push({date:ds,subj:t.subj,mins:mins,src:'timer'});
     S.exam.checkins[ds]=Math.round(subjTimeDayTotal(ds)/60*10)/10;
-    toast('⏱ '+mins+' 分钟已记入打卡');
+    toast('⏱ '+fmtHM(mins)+' 已记入打卡');
   }
 }
 // 把计划标记为完成（复用 dpTg 里的完成逻辑，但避免再次覆盖 actMins）
@@ -2602,7 +2669,7 @@ function tmrFinishAndCommit(){
       if(alreadyCommitted) hint='<div style="font-size:11px;color:var(--ink-2);margin-top:4px">⚠️ 该计划之前已记过时长，actMins 不会重复累加哦</div>';
       if(p.type==='drill'){
         // 做题类型：完整表单（含题目数、正确数、正确率）
-        showModal('⏱ 计时结束（'+mins+' 分钟）',[
+        showModal('⏱ 计时结束（'+fmtHM(mins)+'）',[
           {key:'alsoDone',label:'是否同时完成该计划？',type:'select',options:[
             {v:'yes',t:'✅ 完成并打钩（推荐）'},{v:'no',t:'仅记入时长，不打钩'}
           ],value:'yes'},
@@ -2629,7 +2696,7 @@ function tmrFinishAndCommit(){
       } else {
         // 其他类型：简单确认
         mCb=null;
-        $('modal').innerHTML='<h3>⏱ 计时结束（'+mins+' 分钟）</h3>'
+        $('modal').innerHTML='<h3>⏱ 计时结束（'+fmtHM(mins)+'）</h3>'
           +'<p style="font-size:13px;color:var(--ink);text-align:center;padding:6px 4px 10px">关联计划：<b style="color:var(--purple)">'+esc(planPreview)+'</b></p>'
           +hint
           +'<div class="m-btns"><button class="btn ghost" onclick="closeModal();toast(\'已取消\')">仅记入时长</button><button class="btn pk" id="m-yes">✅ 同时完成该计划</button></div>';
@@ -2830,7 +2897,7 @@ function timeLogOk(){
   if(!S.exam.subjTime)S.exam.subjTime=[];
   S.exam.subjTime.push({date:wheelDate,subj:subj,mins:Math.round(h*60)});
   S.exam.checkins[wheelDate]=(S.exam.checkins[wheelDate]||0)+h;
-  closeModal(); render(); toast('打卡 '+h+' 小时，好样的！🔥');
+  closeModal(); render(); toast('打卡 '+fmtHM(Math.round(h*60))+'，好样的！🔥');
 }
 function timeLogClear(){
   S.exam.subjTime=(S.exam.subjTime||[]).filter(function(t){return t.date!==wheelDate});
