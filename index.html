@@ -3992,49 +3992,23 @@ render();
 setTimeout(function(){var s=document.getElementById('splash');if(s)s.classList.add('hide');},1400);
 </script>
 <script>
-// 强制 SW 更新逻辑
+// SW 注册：简洁版，不自动 reload 避免死循环
 (function(){
-  var EXPECTED_VERSION = 'v5';
-  var regKey = 'ritty_sw_version';
-  var lastVer = localStorage.getItem(regKey);
-  
-  if('serviceWorker' in navigator && location.protocol==='https:'){
-    window.addEventListener('load', function(){
-      // 如果版本不匹配，卸载所有旧 SW
-      if(lastVer && lastVer !== EXPECTED_VERSION){
-        navigator.serviceWorker.getRegistrations().then(function(regs){
-          regs.forEach(function(r){ r.unregister(); });
-          caches.keys().then(function(keys){
-            keys.forEach(function(k){ if(k.indexOf('ritty-')===0) caches.delete(k); });
-          });
-          // 注册新版本
-          navigator.serviceWorker.register('sw.js?v=' + Date.now()).then(function(reg){
-            localStorage.setItem(regKey, EXPECTED_VERSION);
-          }).then(function(){
-            // 强制刷新一次
-            setTimeout(function(){ location.reload(); }, 200);
-          });
+  if(!('serviceWorker' in navigator) || location.protocol!=='https:') return;
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      reg.addEventListener('updatefound', function(){
+        var nw = reg.installing; if(!nw) return;
+        nw.addEventListener('statechange', function(){
+          if(nw.state==='installed' && navigator.serviceWorker.controller){
+            nw.postMessage('SKIP_WAITING');
+            // 仅提示，不自动 reload（避免死循环）
+            toast('已更新，请手动刷新页面查看 ✨');
+          }
         });
-      } else {
-        // 正常注册
-        navigator.serviceWorker.register('sw.js?v=' + Date.now()).then(function(reg){
-          localStorage.setItem(regKey, EXPECTED_VERSION);
-          // 监听 SW 更新
-          reg.addEventListener('updatefound', function(){
-            var nw = reg.installing;
-            nw.addEventListener('statechange', function(){
-              if(nw.state === 'installed' && navigator.serviceWorker.controller){
-                nw.postMessage('SKIP_WAITING');
-                // 提示用户刷新
-                toast('发现新版本，正在更新...');
-                setTimeout(function(){ location.reload(); }, 1500);
-              }
-            });
-          });
-        }).catch(function(){});
-      }
-    });
-  }
+      });
+    }).catch(function(){});
+  });
 })();
 </script>
 </body>
