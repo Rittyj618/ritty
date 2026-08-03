@@ -4299,22 +4299,32 @@ render();
 setTimeout(function(){var s=document.getElementById('splash');if(s)s.classList.add('hide');},1400);
 </script>
 <script>
-// SW 注册：简洁版，不自动 reload 避免死循环
+// SW 注册：updateViaCache='none' 绕过 HTTP 缓存，新 SW 激活后自动 reload 一次
 (function(){
   if(!('serviceWorker' in navigator) || location.protocol!=='https:') return;
+  var reloadedKey='_sw_reload_';
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('sw.js').then(function(reg){
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
+      // 每次页面加载都强制检查一次 sw.js 更新
+      try{ reg.update(); }catch(_){}
       reg.addEventListener('updatefound', function(){
         var nw = reg.installing; if(!nw) return;
         nw.addEventListener('statechange', function(){
           if(nw.state==='installed' && navigator.serviceWorker.controller){
             nw.postMessage('SKIP_WAITING');
-            // 仅提示，不自动 reload（避免死循环）
-            toast('已更新，请手动刷新页面查看 ✨');
+            sessionStorage.setItem(reloadedKey,'1');
+            toast('✨ 有新版本，正在刷新…');
           }
         });
       });
     }).catch(function(){});
+    // 新 SW 接管后自动 reload 一次（只一次，防死循环）
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if(sessionStorage.getItem(reloadedKey)==='1'){
+        sessionStorage.removeItem(reloadedKey);
+        location.reload();
+      }
+    });
   });
 })();
 </script>
