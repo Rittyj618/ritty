@@ -202,7 +202,7 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .tmr-sp3{bottom:20px;left:15px;animation:tmrTwinkle 1.5s ease-in-out infinite 1s}
 @keyframes tmrTwinkle{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
 .tmr-btns-row{display:flex;gap:8px;justify-content:center;margin-top:12px}
-.tmr-btns-row2{display:flex;gap:8px;justify-content:center;margin-top:8px}
+.tmr-btns-row2{display:flex;gap:8px;justify-content:center;margin-top:10px}
 .tmr-ctrl{border:none;cursor:pointer;padding:9px 14px;border-radius:14px;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .2s;min-width:58px}
 .tmr-ctrl:active{transform:scale(.92)}
 .tmr-ctrl-ico{font-size:16px;line-height:1}
@@ -210,9 +210,22 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .tmr-ctrl-play{background:linear-gradient(135deg,#ff7aa2,#ff5c8d);color:#fff;box-shadow:0 4px 12px rgba(255,122,162,.35)}
 .tmr-ctrl-pause{background:linear-gradient(135deg,#ffd06b,#ffb347);color:#7a4d10;box-shadow:0 4px 12px rgba(255,180,71,.3)}
 .tmr-ctrl-reset{background:linear-gradient(135deg,#e8e4f0,#d4cfde);color:var(--ink-2);box-shadow:0 4px 12px rgba(150,130,180,.2)}
-.tmr-ctrl-done{background:linear-gradient(135deg,#7ed6a5,#4ecb8a);color:#fff;box-shadow:0 4px 12px rgba(78,203,138,.3)}
+.tmr-ctrl-done{background:linear-gradient(135deg,#7ed6a5,#4ecb8a);color:#fff;box-shadow:0 4px 12px rgba(78,203,138,.3);padding:13px 20px;min-width:100%}
+.tmr-ctrl-done .tmr-ctrl-ico{font-size:22px}
+.tmr-ctrl-done .tmr-ctrl-lbl{font-size:13px}
+.tmr-ctrl-done:active{animation:tmrPop .3s cubic-bezier(.22,1.4,.36,1)}
 .tmr-ctrl-play:active{animation:tmrPop .3s cubic-bezier(.22,1.4,.36,1)}
 @keyframes tmrPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+/* 鼓励动画弹层 */
+.cheer-overlay{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .3s}
+.cheer-overlay.on{opacity:1;pointer-events:auto}
+.cheer-emoji{font-size:72px;animation:cheerBounce .6s cubic-bezier(.22,1.4,.36,1)}
+.cheer-text{font-size:22px;font-weight:800;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.3);margin-top:12px;animation:cheerTextIn .5s ease-out .15s both}
+.cheer-sub{font-size:14px;font-weight:600;color:rgba(255,255,255,.9);margin-top:6px;animation:cheerTextIn .5s ease-out .3s both}
+.cheer-confetti{position:absolute;font-size:20px;animation:cheerConfetti 1.2s ease-out forwards}
+@keyframes cheerBounce{0%{transform:scale(0) rotate(-20deg)}60%{transform:scale(1.3) rotate(10deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes cheerTextIn{0%{opacity:0;transform:translateY(15px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes cheerConfetti{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(120px) rotate(360deg)}}
 .tmr-pomo-cfg{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-2);justify-content:center;margin:8px 0 2px;flex-wrap:wrap}
 .tmr-cfg-label{font-weight:600;color:var(--ink-2)}
 .tmr-cfg-sel{font-size:12px;padding:2px 4px;border:1.5px solid var(--line);border-radius:8px;background:#fff}
@@ -756,6 +769,7 @@ audio{width:100%;height:34px;margin-top:5px}
   <div id="modal"></div>
 </div>
 <div id="toast"></div>
+<div id="cheer" class="cheer-overlay"></div>
 <div id="imgview" onclick="this.classList.remove('on')"></div>
 <input type="file" id="file-in" accept=".json,application/json">
 <input type="file" id="img-in" accept="image/*">
@@ -1068,6 +1082,41 @@ function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function fmtD(s){ if(!s)return''; var p=s.split('-'); return p[1]*1+'月'+p[2]*1+'日'; }
 function toast(m){ var t=$('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(function(){t.style.display='none'},1600); }
+/* 鼓励动画 */
+var CHEER_LINES=[
+  {e:'🎉',t:'太棒了！',s:'继续保持这个节奏～'},
+  {e:'🌟',t:'厉害呀！',s:'你离上岸又近了一步！'},
+  {e:'🎊',t:'完成啦！',s:'今天的你，闪闪发光 ✨'},
+  {e:'💪',t:'牛牪犇！',s:'这股劲头，绝了！'},
+  {e:'🏆',t:'漂亮！',s:'计划 +1，实力 +1'},
+  {e:'🚀',t:'起飞！',s:'专注力拉满，冲冲冲'},
+  {e:'🌈',t:'好样的！',s:'坚持就是胜利呀～'},
+  {e:'🥳',t:'撒花！',s:'奖励自己喝口水 🧋'}
+];
+var _cheerTimer=null;
+function showCheer(emoji,text,sub){
+  var c=$('cheer');
+  var pick=CHEER_LINES[Math.floor(Math.random()*CHEER_LINES.length)];
+  emoji=emoji||pick.e; text=text||pick.t; sub=sub||pick.s;
+  // 彩纸
+  var confettiHtml='';
+  var confs=['🎉','⭐','✨','🌟','💫','🎈','🎊','🌈'];
+  for(var i=0;i<12;i++){
+    var x=Math.random()*100;
+    var delay=Math.random()*.3;
+    var ci=confs[Math.floor(Math.random()*confs.length)];
+    confettiHtml+='<span class="cheer-confetti" style="left:'+x+'%;top:20%;animation-delay:'+delay+'s">'+ci+'</span>';
+  }
+  c.innerHTML='<div style="position:relative;width:100%;text-align:center">'
+    +confettiHtml
+    +'<div class="cheer-emoji">'+emoji+'</div>'
+    +'<div class="cheer-text">'+text+'</div>'
+    +'<div class="cheer-sub">'+sub+'</div>'
+    +'</div>';
+  c.classList.add('on');
+  clearTimeout(_cheerTimer);
+  _cheerTimer=setTimeout(function(){ c.classList.remove('on'); c.innerHTML=''; },2200);
+}
 function monthStr(){ return today().slice(0,7); }
 function daysAgoStr(n){ var d=new Date(); d.setDate(d.getDate()-n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(){ var a=[]; for(var i=6;i>=0;i--)a.push(daysAgoStr(i)); return a; }
@@ -2373,6 +2422,7 @@ function dpTg(id){
           S.exam.drills.push({id:uid(),date:target.date||today(),subj:target.subj,count:tc,correct:cc,minutes:m,source:'',plan:pname});
         }
         render(); toast('🎉 正确率 '+acc+'%！已自动记入做题记录，耗时 '+fmtHM(m)+' ✨');
+        showCheer('🏆',acc>=85?'太强了！':acc>=70?'不错哦！':'继续加油！',acc>=85?'这正确率，稳上岸！':acc>=70?'保持住，越来越好～':'错题记得看，下次一定行！');
         return true;
       },'太棒了！');
     }else{
@@ -2668,6 +2718,7 @@ function tmrCommitWork(mins, alsoComplete, extraActMinsOverride){
       // ---------- 同时完成计划 ----------
       if(alsoComplete && !p.done){
         _tmrCompleteDayplan(p, mins);
+        showCheer();
       }
       var msg='⏱ '+fmtHM(mins);
       if(alsoComplete) msg += '，计划已打钩完成';
