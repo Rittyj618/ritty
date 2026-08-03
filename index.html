@@ -7,6 +7,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ritty">
 <meta name="theme-color" content="#ff9bb3">
+<meta name="app-version" content="v5">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Ritty 的工作台</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -150,8 +154,8 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .t-main{flex:1;min-width:0;display:flex;align-items:center;gap:3px}
 .task.done .t-title{text-decoration:line-through;color:var(--ink-2)}
 .t-title{font-size:13px;font-weight:600;color:var(--ink);line-height:1.3;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.t-tags{display:flex;gap:2px;flex:0 1 auto;min-width:0;overflow:hidden}
-.t-tag{font-size:7.5px;padding:0 3px;border-radius:99px;background:var(--purple-l);color:#7d5fc9;line-height:1.8;white-space:nowrap;max-width:48%;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle}
+.t-tags{display:flex;gap:2px;flex:none;overflow:hidden}
+.t-tag{font-size:12px;padding:0;border-radius:0;background:transparent;line-height:1;white-space:nowrap;display:inline-flex;align-items:center;vertical-align:middle}
 .t-date{font-size:9.5px;color:var(--ink-2);flex:none;white-space:nowrap}
 .t-date.over{color:var(--red);font-weight:700}
 .del{border:none;background:none;color:#d9d2e8;font-size:13px;cursor:pointer;padding:1px;flex:none}
@@ -1268,7 +1272,7 @@ function taskHtml(k){
     +'<div class="ck" onclick="tgTask(\''+k.id+'\')">'+(k.done?'✓':'')+'</div>'
     +'<div class="t-main">'
       +'<div class="t-title">'+esc(k.title)+'</div>'
-      +'<div class="t-tags"><span class="t-tag">'+MODS[k.mod].ic+MODS[k.mod].n+'</span></div>'
+      +'<div class="t-tags"><span class="t-tag" title="'+esc(MODS[k.mod].n)+'">'+MODS[k.mod].ic+'</span></div>'
     +'</div>'
     +'<span class="t-date'+(over?' over':'')+'">'+(over?'逾期 ':'')+fmtD(k.date)+'</span>'
     +'<button class="del" onclick="rmTask(\''+k.id+'\')">✕</button></div>';
@@ -1412,8 +1416,8 @@ function openDoneHistory(){
         +'<div style="flex:1;height:1px;background:var(--line)"></div></div>';
       groups[d].forEach(function(r){
         var kindIc=r.kind==='dayplan'?'🌊':'🍭';
-        var typeTag=r.kind==='dayplan'?(r.type==='drill'?'✏️做题':'📚其他'):'';
-        var subjTag=r.subj?('<span class="pill" style="font-size:9px;margin-left:4px">'+subjI(r.subj)+subjN(r.subj).slice(0,2)+'</span>'):'';
+        var typeTag=r.kind==='dayplan'?(r.type==='drill'?'<span class="pill" style="font-size:9px" title="做题">✏️</span>':'<span class="pill" style="font-size:9px" title="其他">📚</span>'):'';
+        var subjTag=r.subj?('<span class="pill" style="font-size:9px;margin-left:4px" title="'+subjN(r.subj)+'">'+subjI(r.subj)+'</span>'):'';
         var accTag=(r.kind==='dayplan'&&r.type==='drill'&&r.totalCount>0)?('<span class="pill '+(r.accuracy>=85?'':r.accuracy>=70?'yl':'pk')+'" style="font-size:9px;margin-left:4px">'+r.accuracy+'% · '+r.correctCount+'/'+r.totalCount+'</span>'):'';
         var timeTag=r.actMins>0?('<span style="font-size:10px;color:var(--ink-2);margin-left:4px">⏱'+r.actMins+'m</span>'):'';
         var noteTag=r.note?('<div style="font-size:11px;color:var(--ink-2);margin-top:2px;padding-left:22px">💬 '+esc(r.note)+'</div>'):'';
@@ -1507,9 +1511,11 @@ function rHome(){
 
 /* ---------- 设置 / 数据导入导出 ---------- */
 function openSettings(){
+  var appVer=document.querySelector('meta[name="app-version"]').content||'v?';
   mCb=null;
   $('modal').innerHTML='<h3>⚙️ 数据小管家</h3>'
-    +'<p style="font-size:12px;color:var(--ink-2);text-align:center;margin-bottom:14px">数据保存在本机浏览器中<br>可导出 JSON 备份，或导入备份文件覆盖重置</p>'
+    +'<p style="font-size:12px;color:var(--ink-2);text-align:center;margin-bottom:6px">当前版本：<b style="color:var(--purple)">'+appVer+'</b>（如非最新版请下拉刷新）</p>'
+    +'<p style="font-size:11px;color:var(--ink-2);text-align:center;margin-bottom:14px">数据保存在本机浏览器中<br>可导出 JSON 备份，或导入备份文件覆盖重置</p>'
     +'<div class="m-btns" style="margin-top:0"><button class="btn" onclick="exportData()">📤 导出备份</button><button class="btn pp" onclick="$(\'file-in\').click()">📥 导入覆盖</button></div>'
     +'<div class="m-btns"><button class="btn ghost" style="color:var(--red);border-color:#ffe2e2" onclick="resetData()">🧹 清空全部数据</button><button class="btn ghost" onclick="closeModal()">关闭</button></div>';
   $('mask').classList.add('on');
@@ -1820,11 +1826,11 @@ function examDays(e){ return Math.ceil((new Date(e.date)-new Date(today()))/8640
 function dpToday(){ var t=today(); return S.exam.dayplans.filter(function(p){return p.date===t}); }
 function dpHtml(p){
   var link='';
-  if(p.planId){ var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x}); if(pl) link='<span class="t-tag" title="'+esc(pl.name)+'">🔗'+esc(pl.name.length>6?pl.name.slice(0,6)+'…':pl.name)+'</span>'; }
-  var subjTag=(p.subj?'<span class="t-tag">'+subjI(p.subj)+subjN(p.subj).slice(0,2)+'</span>':'');
+  if(p.planId){ var pl=null; S.exam.plans.forEach(function(x){if(x.id===p.planId)pl=x}); if(pl) link='<span class="t-tag" title="'+esc(pl.name)+'">🔗</span>'; }
+  var subjTag=(p.subj?'<span class="t-tag" title="'+subjN(p.subj)+'">'+subjI(p.subj)+'</span>':'');
   var tags=subjTag+link;
   // 类型标签
-  var typeTag=(p.type==='drill'?'<span class="t-tag" style="background:#fde3ee;color:#d66a8a">✏️做题</span>':'<span class="t-tag" style="background:#e3f5fd;color:#5a9ec9">📚</span>');
+  var typeTag=(p.type==='drill'?'<span class="t-tag" title="做题">✏️</span>':'<span class="t-tag" title="其他">📚</span>');
   // 正确率徽章（做题类型且已完成）
   var accBadge='';
   if(p.type==='drill' && p.done && p.accuracy>0){
@@ -3986,9 +3992,50 @@ render();
 setTimeout(function(){var s=document.getElementById('splash');if(s)s.classList.add('hide');},1400);
 </script>
 <script>
-if('serviceWorker' in navigator && location.protocol==='https:'){
-  window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
-}
+// 强制 SW 更新逻辑
+(function(){
+  var EXPECTED_VERSION = 'v5';
+  var regKey = 'ritty_sw_version';
+  var lastVer = localStorage.getItem(regKey);
+  
+  if('serviceWorker' in navigator && location.protocol==='https:'){
+    window.addEventListener('load', function(){
+      // 如果版本不匹配，卸载所有旧 SW
+      if(lastVer && lastVer !== EXPECTED_VERSION){
+        navigator.serviceWorker.getRegistrations().then(function(regs){
+          regs.forEach(function(r){ r.unregister(); });
+          caches.keys().then(function(keys){
+            keys.forEach(function(k){ if(k.indexOf('ritty-')===0) caches.delete(k); });
+          });
+          // 注册新版本
+          navigator.serviceWorker.register('sw.js?v=' + Date.now()).then(function(reg){
+            localStorage.setItem(regKey, EXPECTED_VERSION);
+          }).then(function(){
+            // 强制刷新一次
+            setTimeout(function(){ location.reload(); }, 200);
+          });
+        });
+      } else {
+        // 正常注册
+        navigator.serviceWorker.register('sw.js?v=' + Date.now()).then(function(reg){
+          localStorage.setItem(regKey, EXPECTED_VERSION);
+          // 监听 SW 更新
+          reg.addEventListener('updatefound', function(){
+            var nw = reg.installing;
+            nw.addEventListener('statechange', function(){
+              if(nw.state === 'installed' && navigator.serviceWorker.controller){
+                nw.postMessage('SKIP_WAITING');
+                // 提示用户刷新
+                toast('发现新版本，正在更新...');
+                setTimeout(function(){ location.reload(); }, 1500);
+              }
+            });
+          });
+        }).catch(function(){});
+      }
+    });
+  }
+})();
 </script>
 </body>
 </html>
