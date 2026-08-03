@@ -1937,7 +1937,9 @@ function rExOv(){
   h+=card(rowL('⏱ 专注计时器', S.timer.running ? '<span style="font-size:10px;color:var(--pink);font-weight:600">● 运行中</span>' : ''), tmrCardHtml(), 'anim-slideup');
   // 3. 今日计划
   var dps=dpToday(), doneN=dps.filter(function(p){return p.done}).length;
-  h+=card(rowL('🗓 今日计划'+(dps.length?('（'+doneN+'/'+dps.length+'）'):''),'<button class="btn sm pk" onclick="addDayplan()">＋ 计划</button>'),
+  var otherN=S.exam.dayplans.filter(function(p){return p.date!==t}).length;
+  var otherBtn=otherN>0?'<button class="btn sm ghost" onclick="showOtherDayplans()">📅 其他('+otherN+')</button>':'';
+  h+=card(rowL('🗓 今日计划'+(dps.length?('（'+doneN+'/'+dps.length+'）'):''),otherBtn+'<button class="btn sm pk" onclick="addDayplan()">＋ 计划</button>'),
     dps.length?dps.map(dpHtml).join(''):emptyHtml('🌱','还没有今日计划，先安排上')
   );
   // 4. 学习计划
@@ -2444,6 +2446,62 @@ function dpRm(id){
   removeDoneHistory(id);
   S.exam.dayplans=S.exam.dayplans.filter(function(p){return p.id!==id});
   render();
+}
+/* 查看其他日期的计划 */
+function showOtherDayplans(){
+  var t=today();
+  var others=S.exam.dayplans.filter(function(p){return p.date!==t});
+  if(!others.length){ toast('没有其他日期的计划'); return; }
+  // 按日期分组
+  var groups={};
+  others.forEach(function(p){
+    var d=p.date||'未排期';
+    if(!groups[d]) groups[d]=[];
+    groups[d].push(p);
+  });
+  var dates=Object.keys(groups).sort(function(a,b){return a<b?-1:1});
+  var h='<h3>📅 其他日期计划</h3>';
+  h+='<p style="font-size:12px;color:var(--ink-2);margin-bottom:12px">点击「→今天」可快速把计划挪到今天</p>';
+  dates.forEach(function(d){
+    var isPast=d<t;
+    var dateLabel=d===t?'今天':d;
+    var dateTxt=new Date(d).getDay();
+    var wk=['日','一','二','三','四','五','六'][dateTxt];
+    h+='<div style="margin-bottom:14px">';
+    h+='<div style="font-size:12px;font-weight:700;color:'+(isPast?'var(--pink)':'var(--ink-2)')+';margin-bottom:6px;display:flex;align-items:center;gap:4px">';
+    h+=isPast?'⏰ ':'📅 ';
+    h+=esc(dateLabel)+' 周'+wk;
+    if(isPast) h+='<span style="font-size:10px;color:var(--pink);background:var(--pink-l);padding:1px 6px;border-radius:99px;margin-left:4px">逾期</span>';
+    h+='</div>';
+    groups[d].forEach(function(p){
+      var est=fmtHM(p.estMins);
+      h+='<div class="task'+(p.done?' done':'')+'" style="margin-bottom:6px">';
+      h+='<div class="ck" style="border-color:'+(p.type==='drill'?'#e0699e':'var(--pink)')+(p.done?';background:'+(p.type==='drill'?'#e0699e':'var(--pink)'):'')+'">'+(p.done?'✓':'')+'</div>';
+      h+='<div class="t-main">';
+      h+='<div class="t-title" onclick="closeModal();editDayplan(\''+p.id+'\')" style="cursor:pointer">'+esc(p.text)+'</div>';
+      var tags='';
+      if(p.subj) tags+='<span class="t-tag" title="'+subjN(p.subj)+'">'+subjI(p.subj)+'</span>';
+      tags+=p.type==='drill'?'<span class="t-tag" title="做题">✏️</span>':'<span class="t-tag" title="其他">📚</span>';
+      if(est) tags+='<span style="font-size:10px;color:var(--ink-2);white-space:nowrap">~'+est+'</span>';
+      h+='<div class="t-tags">'+tags+'</div>';
+      h+='</div>';
+      h+='<button class="btn sm pk" style="flex:none;font-size:11px;padding:5px 8px;margin-left:4px" onclick="dpMoveToToday(\''+p.id+'\')">→今天</button>';
+      h+='</div>';
+    });
+    h+='</div>';
+  });
+  h+='<div class="m-btns"><button class="btn ghost" onclick="closeModal()">关闭</button></div>';
+  mCb=null;
+  $('modal').innerHTML=h;
+  $('mask').classList.add('on');
+}
+function dpMoveToToday(id){
+  var p=null; S.exam.dayplans.forEach(function(x){if(x.id===id)p=x});
+  if(!p) return;
+  p.date=today();
+  save(); render();
+  closeModal();
+  toast('已移到今天 ✨');
 }
 /* ---- 专注计时器 / 番茄钟 ---- */
 var tmrTick=null;
