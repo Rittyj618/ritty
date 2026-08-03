@@ -201,8 +201,9 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .tmr-sp2{top:30px;right:15px;animation:tmrTwinkle 1.5s ease-in-out infinite .5s}
 .tmr-sp3{bottom:20px;left:15px;animation:tmrTwinkle 1.5s ease-in-out infinite 1s}
 @keyframes tmrTwinkle{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
-.tmr-btns-row{display:flex;gap:8px;justify-content:center;margin-top:12px}
-.tmr-btns-row2{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.tmr-btns-wrap{display:flex;flex-direction:column;align-items:center;margin-top:12px}
+.tmr-btns-row{display:flex;gap:8px;justify-content:center}
+.tmr-btns-row2{display:flex;gap:8px;justify-content:center;width:100%;margin-top:10px}
 .tmr-ctrl{border:none;cursor:pointer;padding:9px 14px;border-radius:14px;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .2s;min-width:58px}
 .tmr-ctrl:active{transform:scale(.92)}
 .tmr-ctrl-ico{font-size:16px;line-height:1}
@@ -210,9 +211,7 @@ h1{font-size:20px;display:flex;align-items:center;gap:8px}
 .tmr-ctrl-play{background:linear-gradient(135deg,#ff7aa2,#ff5c8d);color:#fff;box-shadow:0 4px 12px rgba(255,122,162,.35)}
 .tmr-ctrl-pause{background:linear-gradient(135deg,#ffd06b,#ffb347);color:#7a4d10;box-shadow:0 4px 12px rgba(255,180,71,.3)}
 .tmr-ctrl-reset{background:linear-gradient(135deg,#e8e4f0,#d4cfde);color:var(--ink-2);box-shadow:0 4px 12px rgba(150,130,180,.2)}
-.tmr-ctrl-done{background:linear-gradient(135deg,#7ed6a5,#4ecb8a);color:#fff;box-shadow:0 4px 12px rgba(78,203,138,.3);padding:13px 20px;min-width:100%}
-.tmr-ctrl-done .tmr-ctrl-ico{font-size:22px}
-.tmr-ctrl-done .tmr-ctrl-lbl{font-size:13px}
+.tmr-ctrl-done{background:linear-gradient(135deg,#7ed6a5,#4ecb8a);color:#fff;box-shadow:0 4px 12px rgba(78,203,138,.3);width:100%}
 .tmr-ctrl-done:active{animation:tmrPop .3s cubic-bezier(.22,1.4,.36,1)}
 .tmr-ctrl-play:active{animation:tmrPop .3s cubic-bezier(.22,1.4,.36,1)}
 @keyframes tmrPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
@@ -2894,7 +2893,8 @@ function tmrCardHtml(){
   // 三颗小装饰星
   var sparkles=t.running?'<span class="tmr-sparkle tmr-sp1">✨</span><span class="tmr-sparkle tmr-sp2">⭐</span><span class="tmr-sparkle tmr-sp3">✨</span>':'';
   // 三按钮常驻
-  var btnsHtml='<div class="tmr-btns-row">'
+  var btnsHtml='<div class="tmr-btns-wrap">'
+    +'<div class="tmr-btns-row">'
     +'<button class="tmr-ctrl tmr-ctrl-play" onclick="tmrStart()" title="开始/继续">'
       +'<span class="tmr-ctrl-ico">▶</span>'
       +'<span class="tmr-ctrl-lbl">'+(t.running?'运行中':(t.elapsed>0?'继续':'开始'))+'</span>'
@@ -2913,6 +2913,7 @@ function tmrCardHtml(){
       +'<span class="tmr-ctrl-ico">✨</span>'
       +'<span class="tmr-ctrl-lbl">完成记入</span>'
     +'</button>'
+    +'</div>'
     +'</div>';
   var modeHtml='<div class="tmr-seg">'
     +'<button class="tmr-seg-btn'+(!isPomo?' on':'')+'" onclick="tmrSetMode(\'stopwatch\')"><span class="tmr-seg-emoji">⏱</span>计时器</button>'
