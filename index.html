@@ -299,13 +299,17 @@ svg.trend{width:100%;height:110px}
 .fld-calc.up{color:var(--teal-d);border-color:var(--teal);background:linear-gradient(135deg,var(--teal-l),#fff)}
 /* 行内双字段（预计时长/实际用时等） */
 .fld-row{margin-bottom:11px}
-.fld-row-label{font-size:12px;color:var(--ink-2);display:block;margin-bottom:5px}
-.fld-row-inner{display:flex;gap:8px}
+.fld-row-label{font-size:12px;color:var(--ink-2);display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.fld-row-calc{font-size:12px;font-weight:700;color:var(--teal-d);background:var(--teal-l);padding:2px 10px;border-radius:99px;white-space:nowrap;transition:all .25s cubic-bezier(.22,1.4,.36,1)}
+.fld-row-inner{display:flex;gap:6px}
 .fld-row-item{flex:1;min-width:0}
-.fld-row-item label{font-size:11px;color:var(--ink-2);display:block;margin-bottom:3px}
-.fld-row-item input,.fld-row-item select{width:100%;border:2px solid var(--line);border-radius:10px;padding:7px 9px;font-size:13px;background:#fdfbf8;color:var(--ink);outline:none}
+.fld-row-item input,.fld-row-item select{width:100%;border:2px solid var(--line);border-radius:12px;padding:9px 8px;font-size:14px;font-weight:600;background:#fdfbf8;color:var(--ink);outline:none;text-align:center;text-align-last:center}
 .fld-row-item input:focus,.fld-row-item select:focus{border-color:var(--teal)}
-.fld-row-item:has(.fld-calc){flex:0.7;min-width:auto}
+/* 时长选择器：小时和分钟中间加冒号分隔 */
+.fld-time .fld-row-inner{position:relative;gap:0}
+.fld-time .fld-row-item:first-child select{border-radius:12px 4px 4px 12px}
+.fld-time .fld-row-item:last-child select{border-radius:4px 12px 12px 4px;margin-left:-2px}
+.fld-time .fld-row-inner::after{content:':';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:16px;font-weight:700;color:var(--ink-2);z-index:2;pointer-events:none}
 /* toast */
 #toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:rgba(77,74,92,.92);color:#fff;
   padding:9px 18px;border-radius:99px;font-size:13px;z-index:120;display:none;white-space:nowrap}
@@ -1075,14 +1079,21 @@ function showModal(title,fields,cb,okText){
   var h='<h3>'+esc(title)+'</h3>';
   fields.forEach(function(f){
     if(f.type==='row'){
-      h+='<div class="fld fld-row">';
-      h+='<div class="fld-row-label">'+esc(f.label||'')+'</div>';
+      var rowCls=f.cls?(' '+f.cls):'';
+      h+='<div class="fld fld-row'+rowCls+'">';
+      // 分离普通字段和 calc 字段
+      var normFields=[], calcField=null;
+      f.fields.forEach(function(sf){ if(sf.type==='readonly'||sf.type==='calc') calcField=sf; else normFields.push(sf); });
+      // label 行：calc 字段放右侧做小标签
+      h+='<div class="fld-row-label">'+esc(f.label||'')+'';
+      if(calcField){
+        h+='<span class="fld-row-calc" id="mf-'+calcField.key+'" data-fn="'+esc(calcField.calcFn||'')+'" data-src="'+esc(calcField.srcKeys||'')+'">'+esc(calcField.value||'')+'</span>';
+      }
+      h+='</div>';
       h+='<div class="fld-row-inner">';
-      f.fields.forEach(function(sf){
-        h+='<div class="fld-row-item"><label>'+esc(sf.label)+'</label>';
-        if(sf.type==='readonly'||sf.type==='calc'){
-          h+='<div id="mf-'+sf.key+'" class="fld-calc" data-fn="'+esc(sf.calcFn||'')+'" data-src="'+esc(sf.srcKeys||'')+'">'+esc(sf.value||'')+'</div>';
-        }else if(sf.type==='select'){
+      normFields.forEach(function(sf){
+        h+='<div class="fld-row-item">';
+        if(sf.type==='select'){
           h+='<select id="mf-'+sf.key+'">';
           sf.options.forEach(function(o){
             var v=typeof o==='string'?o:o.v, t=typeof o==='string'?o:o.t;
@@ -1742,7 +1753,7 @@ function subjTimeWeek(k){
 }
 function addSubjTime(k){
   showModal('记录「'+subjN(k)+'」学习时长 ⏱️',[
-    {type:'row',label:'学习时长',fields:[
+    {type:'row',cls:'fld-time',label:'学习时长',fields:[
       {key:'h',label:'小时',type:'select',options:tmrHOpts(),value:'0'},
       {key:'m',label:'分钟',type:'select',options:tmrMOpts(),value:'0'},
       {key:'total',label:'合计',type:'readonly',value:'0 分',cls:'fld-acc',
@@ -2198,7 +2209,7 @@ function addDayplan(prefill){
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正'},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:prefill||''},
     {key:'n',label:'完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1'},
-    {type:'row',label:'预计时长',fields:[
+    {type:'row',cls:'fld-time',label:'预计时长',fields:[
       {key:'estH',label:'小时',type:'select',options:tmrHOpts(),value:hm.h},
       {key:'estM',label:'分钟',type:'select',options:tmrMOpts(),value:hm.m},
       {key:'estTotal',label:'合计',type:'readonly',value:'0 分',cls:'fld-acc',
@@ -2228,14 +2239,14 @@ function editDayplan(id){
     {key:'text',label:'计划内容',ph:'例如：刷资料分析 2 篇 + 订正',value:p.text},
     {key:'plan',label:'关联学习计划（网课/刷题本，可选）',type:'select',options:planOpts,value:p.planId||''},
     {key:'n',label:'完成量（题/节，默认 1；完成后自动计入计划进度）',type:'number',ph:'1',value:p.n||1},
-    {type:'row',label:'预计时长',fields:[
+    {type:'row',cls:'fld-time',label:'预计时长',fields:[
       {key:'estH',label:'小时',type:'select',options:tmrHOpts(),value:estHM.h},
       {key:'estM',label:'分钟',type:'select',options:tmrMOpts(),value:estHM.m},
       {key:'estTotal',label:'合计',type:'readonly',value:(p.estMins||0)+' 分',cls:'fld-acc',
         srcKeys:'estH,estM',
         calcFn:'function(vals){var h=(vals.estH||0)*1,m=(vals.estM||0)*1;return (h*60+m)+" 分";}'}
     ]},
-    {type:'row',label:'实际用时',fields:[
+    {type:'row',cls:'fld-time',label:'实际用时',fields:[
       {key:'actH',label:'小时',type:'select',options:tmrHOpts(),value:actHM.h},
       {key:'actM',label:'分钟',type:'select',options:tmrMOpts(),value:actHM.m},
       {key:'actTotal',label:'合计',type:'readonly',value:(p.actMins||0)+' 分',cls:'fld-acc',
@@ -2318,7 +2329,7 @@ function dpTg(id){
         {key:'accuracy',label:'正确率',type:'readonly',value:'--',cls:'fld-acc',
           srcKeys:'totalCount,correctCount',
           calcFn:'function(vals){var t=(vals.totalCount||0)*1,c=(vals.correctCount||0)*1; if(!t)return"--"; return Math.round(c/t*100)+"%";}'},
-        {type:'row',label:'实际用时（留空用预计）',fields:[
+        {type:'row',cls:'fld-time',label:'实际用时（留空用预计）',fields:[
           {key:'actH',label:'小时',type:'select',options:tmrHOpts(),value:estHM.h},
           {key:'actM',label:'分钟',type:'select',options:tmrMOpts(),value:estHM.m},
           {key:'actTotal',label:'合计',type:'readonly',value:'0 分',cls:'fld-acc',
@@ -2365,7 +2376,7 @@ function dpTg(id){
     }else{
       // 其他类型：只填用时
       showModal('完成计划 🎉 实际用时？',[
-        {type:'row',label:'实际用时',fields:[
+        {type:'row',cls:'fld-time',label:'实际用时',fields:[
           {key:'actH',label:'小时',type:'select',options:tmrHOpts(),value:estHM.h},
           {key:'actM',label:'分钟',type:'select',options:tmrMOpts(),value:estHM.m},
           {key:'actTotal',label:'合计',type:'readonly',value:'0 分',cls:'fld-acc',
