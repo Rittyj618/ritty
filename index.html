@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ritty">
 <meta name="theme-color" content="#ff9bb3">
-<meta name="app-version" content="v9">
+<meta name="app-version" content="v10">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1983,7 +1983,9 @@ function rExOv(){
     miniStats([{v:dr.c,l:'今日做题',c:'var(--teal-d)'},{v:dr.acc==null?'--':dr.acc+'%',l:'今日正确率',c:'#e0699e'},{v:hrs,l:'今日打卡(时)',c:'#8a68d8'}])
   );
   // 2.5 专注计时器 / 番茄钟
-  h+=card(rowL('⏱ 专注计时器', S.timer.running ? '<span style="font-size:10px;color:var(--pink);font-weight:600">● 运行中</span>' : ''), tmrCardHtml(), 'anim-slideup');
+  var tmrHtml='';
+  try{ tmrHtml=tmrCardHtml(); }catch(e){ console.error('计时器渲染失败:',e); }
+  h+=card(rowL('⏱ 专注计时器', S.timer && S.timer.running ? '<span style="font-size:10px;color:var(--pink);font-weight:600">● 运行中</span>' : ''), tmrHtml, 'anim-slideup');
   // 3. 今日计划
   var dps=dpToday(), doneN=dps.filter(function(p){return p.done}).length;
   var otherN=S.exam.dayplans.filter(function(p){return p.date!==t}).length;
