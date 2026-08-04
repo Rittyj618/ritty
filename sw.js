@@ -1,4 +1,4 @@
-const VERSION = 'ritty-v8';
+const VERSION = 'ritty-v9';
 const STATIC = ['.', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -23,10 +23,10 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
 
-  // 导航请求：网络优先，保证每日推送刷新后能看到最新内容；离线则回退缓存
+  // 导航请求：网络优先，cache:'no-cache' 强制向服务器验证 ETag，绕过 HTTP 强缓存
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      fetch(req, {cache:'no-cache'})
         .then((r) => { const c = r.clone(); caches.open(VERSION).then((ca) => ca.put(req, c)); return r; })
         .catch(() => caches.match(req).then((m) => m || caches.match('index.html')))
     );
