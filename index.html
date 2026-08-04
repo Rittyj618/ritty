@@ -1533,11 +1533,16 @@ function rHome(){
   var list=S.tasks.filter(function(k){return (!k.done&&k.date&&k.date<t)||k.date===t});
   list.sort(function(a,b){ return (a.done?1:0)-(b.done?1:0) || (a.date<b.date?-1:1); });
   // 上岸每日计划（同步显示在首页待办区）
-  var dps=S.exam.dayplans.filter(function(p){ return p.date===t||(!p.done&&p.date&&p.date<t); });
+  var dayplans=S.exam&&S.exam.dayplans?S.exam.dayplans:[];
+  var dps=dayplans.filter(function(p){ return p.date===t||(!p.done&&p.date&&p.date<t); });
   // ========== 今日状态评估 ==========
   h+=card(rowL('🌈 今日状态评估','<button class="btn sm pp" onclick="openDayStatus()">'+(S.dayStatus[t]?'✏️ 更新':'＋ 评估')+'</button>'),dayStatusCard(t,dps),'anim-slideup');
   // ========== 计时器 ==========
-  h+=card(rowL('⏱ 专注计时','<button class="btn sm ghost" onclick="go(\'exam\')">上岸→</button>'),tmrCardHtml(),'anim-slideup');
+  try{
+    h+=card(rowL('⏱ 专注计时','<button class="btn sm ghost" onclick="go(\'exam\')">上岸→</button>'),tmrCardHtml(),'anim-slideup');
+  }catch(e){
+    console.error('计时器渲染失败:',e);
+  }
   // ========== 今日任务 ==========
   var hasAny=list.length||dps.length;
   var taskBody= hasAny ? list.map(taskHtml).join('')+(dps.length?'<div style="font-size:11px;color:var(--ink-2);margin:10px 0 2px">🌊 上岸 · 今日计划表</div>'+dps.map(dpHtml).join(''):'') : emptyHtml('☁️','今天没有安排，去添加一件小事吧');
@@ -2589,12 +2594,13 @@ function tmrProgress(){
   return Math.min(1, cur/total);
 }
 function tmrPlanOpts(){
-  var dps=S.exam.dayplans;
+  var dps=S.exam&&S.exam.dayplans?S.exam.dayplans:[];
   var today=today();
   var opts=[{v:'',t:'（不关联计划）'}];
   // 分类：今日/逾期/已完成
   var todayList=[], overList=[], doneList=[];
   dps.forEach(function(p){
+    if(!p||!p.id) return;
     if(p.done) doneList.push(p);
     else if(p.date===today) todayList.push(p);
     else if(p.date && p.date<today) overList.push(p);
@@ -2603,7 +2609,8 @@ function tmrPlanOpts(){
   if(todayList.length){
     opts.push({v:'__today__',t:'—— 今日计划 ——',disabled:true});
     todayList.forEach(function(p){
-      var label=(p.done?'✅':'○')+esc(p.text).slice(0,18)+(p.text.length>18?'…':'');
+      var text=p.text||p.title||'未命名';
+      var label=(p.done?'✅':'○')+esc(text).slice(0,18)+(text.length>18?'…':'');
       if(p.estMins) label+=' ·~'+p.estMins+'m';
       opts.push({v:p.id, t:label});
     });
@@ -2612,7 +2619,8 @@ function tmrPlanOpts(){
   if(overList.length){
     opts.push({v:'__over__',t:'—— 逾期计划 ——',disabled:true});
     overList.forEach(function(p){
-      var label='⏰ '+esc(p.text).slice(0,18)+(p.text.length>18?'…':'');
+      var text=p.text||p.title||'未命名';
+      var label='⏰ '+esc(text).slice(0,18)+(text.length>18?'…':'');
       if(p.estMins) label+=' ·~'+p.estMins+'m';
       opts.push({v:p.id, t:label});
     });
@@ -2621,7 +2629,8 @@ function tmrPlanOpts(){
   if(doneList.length){
     opts.push({v:'__done__',t:'—— 已完成 ——',disabled:true});
     doneList.forEach(function(p){
-      var label='✅ '+esc(p.text).slice(0,18)+(p.text.length>18?'…':'');
+      var text=p.text||p.title||'未命名';
+      var label='✅ '+esc(text).slice(0,18)+(text.length>18?'…':'');
       if(p.estMins) label+=' ·~'+p.estMins+'m';
       opts.push({v:p.id, t:label});
     });
