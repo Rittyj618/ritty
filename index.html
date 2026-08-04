@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ritty">
 <meta name="theme-color" content="#ff9bb3">
-<meta name="app-version" content="v11">
+<meta name="app-version" content="v12">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -2401,26 +2401,28 @@ function dpTg(id){
         target.correctCount=cc;
         target.accuracy=acc;
         target.finishNote=v.note||'';
+        target.finishDate=today();
         pushDoneHistory('dayplan',target);
         if(target.planId){
           var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
           if(pl&&!target.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(target.n||1)); target.pCounted=true; }
         }
-        // 同步到 subjTime + checkins
+        // 同步到 subjTime + checkins（记到完成日 = 今日）
+        var fd=target.finishDate;
         if(m>0 && target.subj){
           if(!S.exam.subjTime)S.exam.subjTime=[];
           S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='dayplan'&&s.refId===target.id)});
-          S.exam.subjTime.push({date:target.date||today(),subj:target.subj,mins:m,src:'dayplan',refId:target.id});
-          S.exam.checkins[target.date||today()]=Math.round(subjTimeDayTotal(target.date||today())/60*10)/10;
+          S.exam.subjTime.push({date:fd,subj:target.subj,mins:m,src:'dayplan',refId:target.id});
+          S.exam.checkins[fd]=Math.round(subjTimeDayTotal(fd)/60*10)/10;
         }
-        // 自动生成记做题记录，不用手动填！
+        // 自动生成记做题记录，不用手动填！（记到完成日 = 今日）
         if(target.subj){
           var pname='';
           if(target.planId){
             var p2=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)p2=x});
             if(p2) pname=p2.name;
           }
-          S.exam.drills.push({id:uid(),date:target.date||today(),subj:target.subj,count:tc,correct:cc,minutes:m,source:'',plan:pname});
+          S.exam.drills.push({id:uid(),date:fd,subj:target.subj,count:tc,correct:cc,minutes:m,source:'',plan:pname});
         }
         render(); toast('🎉 正确率 '+acc+'%！已自动记入做题记录，耗时 '+fmtHM(m)+' ✨');
         showCheer('🏆',acc>=85?'太强了！':acc>=70?'不错哦！':'继续加油！',acc>=85?'这正确率，稳上岸！':acc>=70?'保持住，越来越好～':'错题记得看，下次一定行！');
@@ -2442,16 +2444,18 @@ function dpTg(id){
         target.done=true;
         target.actMins=m;
         target.finishNote=v.note||'';
+        target.finishDate=today();
         pushDoneHistory('dayplan',target);
         if(target.planId){
           var pl=null; S.exam.plans.forEach(function(x){if(x.id===target.planId)pl=x});
           if(pl&&!target.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(target.n||1)); target.pCounted=true; }
         }
+        var fd=target.finishDate;
         if(m>0 && target.subj){
           if(!S.exam.subjTime)S.exam.subjTime=[];
           S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='dayplan'&&s.refId===target.id)});
-          S.exam.subjTime.push({date:target.date||today(),subj:target.subj,mins:m,src:'dayplan',refId:target.id});
-          S.exam.checkins[target.date||today()]=Math.round(subjTimeDayTotal(target.date||today())/60*10)/10;
+          S.exam.subjTime.push({date:fd,subj:target.subj,mins:m,src:'dayplan',refId:target.id});
+          S.exam.checkins[fd]=Math.round(subjTimeDayTotal(fd)/60*10)/10;
         }
         render(); toast('已完成'+(m>0?('，耗时 '+fmtHM(m)+' ✨'):' 🎉'));
         return true;
@@ -2773,6 +2777,7 @@ function tmrCommitWork(mins, alsoComplete, extraActMinsOverride){
 // 把计划标记为完成（复用 dpTg 里的完成逻辑，但避免再次覆盖 actMins）
 function _tmrCompleteDayplan(p, tmrMins){
   p.done=true;
+  p.finishDate=today();  // 记录实际完成日期（可能与计划 date 不同）
   // 如果 actMins 已经被计时填充了一个更大的值，就用那个；否则用计时器
   p.actMins = Math.max(p.actMins*1||0, tmrMins*1||0);
   pushDoneHistory('dayplan',p);
@@ -2781,12 +2786,13 @@ function _tmrCompleteDayplan(p, tmrMins){
     if(pl&&!p.pCounted){ pl.done=Math.min(pl.total*1,pl.done*1+(p.n||1)); p.pCounted=true; }
   }
   var m=p.actMins*1||0;
+  var fd=p.finishDate;
   if(m>0 && p.subj){
     if(!S.exam.subjTime)S.exam.subjTime=[];
     // 去重：dayplan 只保留一条（最新的）
     S.exam.subjTime=S.exam.subjTime.filter(function(s){return !(s.src==='dayplan'&&s.refId===p.id)});
-    S.exam.subjTime.push({date:p.date||today(),subj:p.subj,mins:m,src:'dayplan',refId:p.id});
-    S.exam.checkins[p.date||today()]=Math.round(subjTimeDayTotal(p.date||today())/60*10)/10;
+    S.exam.subjTime.push({date:fd,subj:p.subj,mins:m,src:'dayplan',refId:p.id});
+    S.exam.checkins[fd]=Math.round(subjTimeDayTotal(fd)/60*10)/10;
   }
   // 做题类型：自动生成 drill 记录
   if(p.type==='drill' && p.subj && p.totalCount>0 && p.correctCount>=0){
@@ -2799,10 +2805,10 @@ function _tmrCompleteDayplan(p, tmrMins){
     var dup=false;
     for(var di=S.exam.drills.length-1;di>=0;di--){
       var dd=S.exam.drills[di];
-      if(dd.date===(p.date||today()) && dd.subj===p.subj && dd.count===p.totalCount && dd.correct===p.correctCount){ dup=true; break; }
+      if(dd.date===fd && dd.subj===p.subj && dd.count===p.totalCount && dd.correct===p.correctCount){ dup=true; break; }
     }
     if(!dup){
-      S.exam.drills.push({id:uid(),date:p.date||today(),subj:p.subj,count:p.totalCount,correct:p.correctCount,minutes:m,source:'',plan:pname});
+      S.exam.drills.push({id:uid(),date:fd,subj:p.subj,count:p.totalCount,correct:p.correctCount,minutes:m,source:'',plan:pname});
     }
   }
 }
