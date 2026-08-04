@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ritty">
 <meta name="theme-color" content="#ff9bb3">
-<meta name="app-version" content="v10">
+<meta name="app-version" content="v11">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1538,11 +1538,10 @@ function rHome(){
   // ========== 今日状态评估 ==========
   h+=card(rowL('🌈 今日状态评估','<button class="btn sm pp" onclick="openDayStatus()">'+(S.dayStatus[t]?'✏️ 更新':'＋ 评估')+'</button>'),dayStatusCard(t,dps),'anim-slideup');
   // ========== 计时器 ==========
-  try{
-    h+=card(rowL('⏱ 专注计时','<button class="btn sm ghost" onclick="go(\'exam\')">上岸→</button>'),tmrCardHtml(),'anim-slideup');
-  }catch(e){
-    console.error('计时器渲染失败:',e);
-  }
+  var tmrBody='';
+  try{ tmrBody=tmrCardHtml(); }
+  catch(e){ tmrBody='<div style="padding:10px;color:var(--red);font-size:11px">计时器加载出错：'+esc(e.message||String(e))+'<br>请到设置导出备份后清空数据重试</div>'; }
+  h+=card(rowL('⏱ 专注计时','<button class="btn sm ghost" onclick="go(\'exam\')">上岸→</button>'),tmrBody,'anim-slideup');
   // ========== 今日任务 ==========
   var hasAny=list.length||dps.length;
   var taskBody= hasAny ? list.map(taskHtml).join('')+(dps.length?'<div style="font-size:11px;color:var(--ink-2);margin:10px 0 2px">🌊 上岸 · 今日计划表</div>'+dps.map(dpHtml).join(''):'') : emptyHtml('☁️','今天没有安排，去添加一件小事吧');
@@ -2597,15 +2596,15 @@ function tmrProgress(){
 }
 function tmrPlanOpts(){
   var dps=S.exam&&S.exam.dayplans?S.exam.dayplans:[];
-  var today=today();
+  var td=today();
   var opts=[{v:'',t:'（不关联计划）'}];
   // 分类：今日/逾期/已完成
   var todayList=[], overList=[], doneList=[];
   dps.forEach(function(p){
     if(!p||!p.id) return;
     if(p.done) doneList.push(p);
-    else if(p.date===today) todayList.push(p);
-    else if(p.date && p.date<today) overList.push(p);
+    else if(p.date===td) todayList.push(p);
+    else if(p.date && p.date<td) overList.push(p);
   });
   // 今日计划（最优先）
   if(todayList.length){
