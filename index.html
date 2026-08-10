@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ritty">
 <meta name="theme-color" content="#ff9bb3">
-<meta name="app-version" content="v12">
+<meta name="app-version" content="v13">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -93,7 +93,7 @@ body{
 .nav-btn[data-p="eng"].on .nav-ic{background:linear-gradient(135deg,#ece3fb,#dcd2ff)}
 .nav-btn[data-p="fit"].on .nav-ic{background:linear-gradient(135deg,#ffe3ec,#ffd6e5)}
 .nav-btn[data-p="diet"].on .nav-ic{background:linear-gradient(135deg,#e5f8d8,#d2f2e6)}
-.nav-btn[data-p="hobby"].on .nav-ic{background:linear-gradient(135deg,#fde3ee,#ece3fb)}
+.nav-btn[data-p="skin"].on .nav-ic{background:linear-gradient(135deg,#fde3ee,#ece3fb)}
 .nav-btn[data-p="money"].on .nav-ic{background:linear-gradient(135deg,#fff0cd,#ffe4c9)}
 /* ---------- 主区域 ---------- */
 #main{margin:0 auto;padding:max(16px, env(safe-area-inset-top)) 14px 90px;max-width:560px}
@@ -317,6 +317,11 @@ svg.trend{width:100%;height:110px}
 .fld-row-item{flex:1;min-width:0}
 .fld-row-item input,.fld-row-item select{width:100%;border:2px solid var(--line);border-radius:12px;padding:9px 8px;font-size:14px;font-weight:600;background:#fdfbf8;color:var(--ink);outline:none;text-align:center;text-align-last:center}
 .fld-row-item input:focus,.fld-row-item select:focus{border-color:var(--teal)}
+/* 多选列表 */
+.fld-ms{display:flex;flex-wrap:wrap;gap:6px;max-height:200px;overflow-y:auto}
+.ms-item{display:flex;align-items:center;gap:4px;padding:6px 10px;border:2px solid var(--line);border-radius:99px;font-size:12px;font-weight:600;background:#fdfbf8;color:var(--ink-2);cursor:pointer;user-select:none}
+.ms-item:has(input:checked){border-color:var(--pink);background:var(--pink-l);color:var(--pink-d)}
+.ms-item input{display:none}
 /* 时长选择器：小时和分钟中间加冒号分隔 */
 .fld-time .fld-row-inner{position:relative;gap:0}
 .fld-time .fld-row-item:first-child select{border-radius:12px 4px 4px 12px}
@@ -738,7 +743,7 @@ audio{width:100%;height:34px;margin-top:5px}
   <button class="nav-btn" data-p="eng" onclick="go('eng')"><div class="nav-ic">🔤</div><span>英语</span></button>
   <button class="nav-btn" data-p="fit" onclick="go('fit')"><div class="nav-ic">💪</div><span>健身</span></button>
   <button class="nav-btn" data-p="diet" onclick="go('diet')"><div class="nav-ic">🥗</div><span>饮食</span></button>
-  <button class="nav-btn" data-p="hobby" onclick="go('hobby')"><div class="nav-ic">🎨</div><span>爱好</span></button>
+  <button class="nav-btn" data-p="skin" onclick="go('skin')"><div class="nav-ic">🧴</div><span>护肤</span></button>
   <button class="nav-btn" data-p="money" onclick="go('money')"><div class="nav-ic">💰</div><span>理财</span></button>
 </nav>
 
@@ -748,7 +753,7 @@ audio{width:100%;height:34px;margin-top:5px}
   <div id="pg-eng" class="page"></div>
   <div id="pg-fit" class="page"></div>
   <div id="pg-diet" class="page"></div>
-  <div id="pg-hobby" class="page"></div>
+  <div id="pg-skin" class="page"></div>
   <div id="pg-money" class="page"></div>
 </main>
 
@@ -1024,7 +1029,7 @@ var DEFAULT_DATA={
   eng:{goal:20,checkins:{},words:[],practices:[]},
   fit:{workouts:[],weights:[],goal:{weight:'',weekly:150}},
   diet:{meals:[],water:{},waterGoal:8},
-  hobby:{list:[],logs:[],wishes:[]},
+  skin:{products:[],routines:{am:[],pm:[]},logs:[],profile:{type:'',acne:'',sensitive:'',allergy:'',concern:'',note:''}},
   money:{records:[],budget:2000,savings:[]}
 };
 var S;
@@ -1060,9 +1065,9 @@ function migrateExam(){
 migrateExam();
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ toast('存储快满啦！建议导出备份后删些图片/录音'); } }
 
-var MODS={exam:{n:'上岸',ic:'🌊'},eng:{n:'英语',ic:'🔤'},fit:{n:'健身',ic:'💪'},diet:{n:'饮食',ic:'🥗'},hobby:{n:'爱好',ic:'🎨'},money:{n:'理财',ic:'💰'}};
+var MODS={exam:{n:'上岸',ic:'🌊'},eng:{n:'英语',ic:'🔤'},fit:{n:'健身',ic:'💪'},diet:{n:'饮食',ic:'🥗'},skin:{n:'护肤',ic:'🧴'},money:{n:'理财',ic:'💰'}};
 var cur='home';
-var tabState={exam:0,eng:0,fit:0,diet:0,hobby:0,money:0};
+var tabState={exam:0,eng:0,fit:0,diet:0,skin:0,money:0};
 
 /* ================= 工具 ================= */
 function $(id){return document.getElementById(id)}
@@ -1157,6 +1162,13 @@ function showModal(title,fields,cb,okText){
       h+='</select>';
     }else if(f.type==='textarea'){
       h+='<textarea id="mf-'+f.key+'" rows="3" placeholder="'+esc(f.ph||'')+'">'+esc(f.value||'')+'</textarea>';
+    }else if(f.type==='multiselect'){
+      h+='<div id="mf-'+f.key+'" class="fld-ms">';
+      (f.options||[]).forEach(function(o){
+        var v=typeof o==='string'?o:o.v, t=typeof o==='string'?o:o.t;
+        h+='<label class="ms-item"><input type="checkbox" value="'+esc(v)+'"><span>'+esc(t)+'</span></label>';
+      });
+      h+='</div>';
     }else{
       h+='<input id="mf-'+f.key+'" type="'+(f.type||'text')+'" value="'+esc(f.value||'')+'" placeholder="'+esc(f.ph||'')+'"'+(f.step?' step="'+f.step+'"':'')+'>';
     }
@@ -1202,6 +1214,10 @@ function okModal(){
       var el=$('mf-'+sf.key);
       if(el){
         if(sf.type==='readonly'||sf.type==='calc') vals[sf.key]=el.textContent.trim();
+        else if(sf.type==='multiselect'){
+          var cks=el.querySelectorAll('input[type=checkbox]:checked');
+          vals[sf.key]=Array.prototype.slice.call(cks).map(function(c){return c.value});
+        }
         else vals[sf.key]=el.value.trim();
       }
     });
@@ -1224,7 +1240,7 @@ function closeNav(){ $('nav').classList.remove('open'); $('navmask').classList.r
 /* ================= 路由 ================= */
 var _pages={}, _ebs, _renderPending=false;
 function _cachePages(){
-  _pages={home:$('pg-home'),exam:$('pg-exam'),eng:$('pg-eng'),fit:$('pg-fit'),diet:$('pg-diet'),hobby:$('pg-hobby'),money:$('pg-money')};
+  _pages={home:$('pg-home'),exam:$('pg-exam'),eng:$('pg-eng'),fit:$('pg-fit'),diet:$('pg-diet'),skin:$('pg-skin'),money:$('pg-money')};
   _ebs=document.querySelectorAll('#exambar .eb');
 }
 function go(p){
@@ -1245,7 +1261,7 @@ function render(){
   requestAnimationFrame(function(){
     _renderPending=false;
     save();
-    var fn={home:rHome,exam:rExam,eng:rEng,fit:rFit,diet:rDiet,hobby:rHobby,money:rMoney}[cur];
+    var fn={home:rHome,exam:rExam,eng:rEng,fit:rFit,diet:rDiet,skin:rSkin,money:rMoney}[cur];
     var pg=_pages[cur]||$('pg-'+cur);
     pg.innerHTML=fn();
     if(cur==='exam'){
@@ -1350,7 +1366,7 @@ function quickAdd(){
   else if(cur==='eng')addTask('eng');
   else if(cur==='fit')addWorkout();
   else if(cur==='diet')addMeal();
-  else if(cur==='hobby')addHobbyLog();
+  else if(cur==='skin')addSkinLog();
   else if(cur==='money')addRecord();
 }
 function modTasksHtml(mod){
@@ -1555,7 +1571,6 @@ function rHome(){
   var lastW = S.fit.weights.length? S.fit.weights[S.fit.weights.length-1].kg : null;
   var cups = S.diet.water[t]||0;
   var kcal=0; S.diet.meals.forEach(function(m){ if(m.date===t) kcal+=m.kcal*1||0; });
-  var wishLeft=S.hobby.wishes.filter(function(w){return !w.done}).length;
   var mIn=0,mOut=0,ms=monthStr();
   S.money.records.forEach(function(r){ if(r.date.slice(0,7)===ms){ if(r.type==='in')mIn+=r.amount*1; else mOut+=r.amount*1; } });
   h+='<h3 style="font-size:14px;margin:14px 0 10px">🌈 版块速览</h3><div class="grid2">'
@@ -1563,7 +1578,7 @@ function rHome(){
     +'<div class="mcard mc2" onclick="go(\'eng\')"><span class="mi">🔤</span><b>英语</b><p>今日背词 <em>'+engToday+'</em>/'+S.eng.goal+' · 连续 <em>'+engStreak()+'</em> 天</p></div>'
     +'<div class="mcard mc3" onclick="go(\'fit\')"><span class="mi">💪</span><b>健身</b><p>本周运动 <em>'+fitMin+'</em> 分钟'+(lastW?' · 体重 <em>'+lastW+'</em>kg':'')+'</p></div>'
     +'<div class="mcard mc4" onclick="go(\'diet\')"><span class="mi">🥗</span><b>饮食</b><p>今日 <em>'+kcal+'</em> kcal · 喝水 <em>'+cups+'</em>/'+S.diet.waterGoal+' 杯</p></div>'
-    +'<div class="mcard mc5" onclick="go(\'hobby\')"><span class="mi">🎨</span><b>爱好</b><p>记录 <em>'+S.hobby.logs.length+'</em> 条 · 心愿待实现 <em>'+wishLeft+'</em> 个</p></div>'
+    +'<div class="mcard mc5" onclick="go(\'skin\')"><span class="mi">🧴</span><b>护肤</b><p>仓库 <em>'+S.skin.products.length+'</em> 件 · 今日 <em>'+skinTodayN()+'</em> 步</p></div>'
     +'<div class="mcard mc6" onclick="go(\'money\')"><span class="mi">💰</span><b>理财</b><p>本月支出 <em>¥'+mOut.toFixed(0)+'</em> · 结余 <em>¥'+(mIn-mOut).toFixed(0)+'</em></p></div>'
     +'</div>';
   return h;
@@ -4186,62 +4201,332 @@ function setWaterGoal(){
   });
 }
 
-/* ================= 5. 爱好 ================= */
-function rHobby(){
-  var h='<div class="head"><div class="pgo" onclick="openNav()">🎨</div><div class="ht"><h1>爱好小屋</h1><div class="sub">热爱可抵岁月漫长</div></div><button class="gear" onclick="openSettings()">⚙️</button></div>';
-  h+=tabsHtml('hobby',['🧸 爱好清单','📷 时光记录','✨ 心愿单']);
-  var tb=tabState.hobby;
-  if(tb===0){
-    h+='<div class="card"><div class="rowline"><h3>🧸 我的爱好</h3><button class="btn sm pk" onclick="addHobby()">＋ 爱好</button></div><div class="dotline"></div>';
-    h+= S.hobby.list.length? '<div class="grid2">'+S.hobby.list.map(function(hb,i){
-      var n=S.hobby.logs.filter(function(l){return l.hobby===hb.name}).length;
-      return '<div class="mcard '+['mc5','mc2','mc1','mc3','mc4','mc6'][i%6]+'" onclick="addHobbyLog(\''+esc(hb.name)+'\')"><span class="mi">'+esc(hb.icon||'🌸')+'</span><b>'+esc(hb.name)+'</b><p>记录 <em>'+n+'</em> 次 · 点击打卡</p></div>';
-    }).join('')+'</div>' : emptyHtml('🎠','添加你的小爱好');
-    h+='</div>';
-  }
-  if(tb===1){
-    h+='<div class="card"><div class="rowline"><h3>📷 时光记录</h3><button class="btn sm pp" onclick="addHobbyLog()">＋ 记录</button></div><div class="dotline"></div>';
-    h+= S.hobby.logs.length? S.hobby.logs.map(function(l){
-      return '<div class="li"><div style="flex:1">'+esc(l.note)+'<small>'+fmtD(l.date)+(l.hobby?' · '+esc(l.hobby):'')+'</small></div>'
-        +(l.hobby?'<span class="pill pk">'+esc(l.hobby)+'</span>':'')
-        +'<button class="del" onclick="rmHobbyLog(\''+l.id+'\')">✕</button></div>';
-    }).join('') : emptyHtml('🫧','记录美好瞬间');
-    h+='</div>';
-  }
-  if(tb===2){
-    h+='<div class="card"><div class="rowline"><h3>✨ 心愿单</h3><button class="btn sm pk" onclick="addWish()">＋ 心愿</button></div><div class="dotline"></div>';
-    h+= S.hobby.wishes.length? S.hobby.wishes.map(function(w){
-      return '<div class="li wish'+(w.done?' done':'')+'"><div class="wish-ck" onclick="tgWish(\''+w.id+'\')">'+(w.done?'✓':'')+'</div><div class="w-t" style="flex:1">'+esc(w.title)+'</div><button class="del" onclick="rmWish(\''+w.id+'\')">✕</button></div>';
-    }).join('') : emptyHtml('🌠','写下想实现的小心愿吧');
-    h+='</div>';
-  }
+/* ================= 5. 护肤 ================= */
+var SKIN_TYPES=['洁面','爽肤水','精华','乳液','面霜','防晒','面膜','眼霜','去角质','卸妆','其他'];
+var SKIN_TYPE_IC={'洁面':'🧼','爽肤水':'💦','精华':'💧','乳液':'🧴','面霜':'🫙','防晒':'☀️','面膜':'🎭','眼霜':'👁️','去角质':'✨','卸妆':'🧽','其他':'🌸'};
+var SKIN_FACE_TYPES=['干性','油性','混干','混油','中性','敏感'];
+var SKIN_ACNE=['无','偶尔冒痘','频繁长痘','严重痘痘'];
+var SKIN_SENS=['不敏感','轻微敏感','容易泛红','重度敏感'];
+
+function skinTodayN(){
+  var t=today();
+  return S.skin.logs.filter(function(l){return l.date===t}).length;
+}
+function prodById(id){ var r=null; S.skin.products.forEach(function(p){if(p.id===id)r=p}); return r; }
+function prodName(id){ var p=prodById(id); return p?p.name:'(已删除)'; }
+function prodLabel(p){ return (SKIN_TYPE_IC[p.type]||'🌸')+' '+esc(p.name)+(p.brand?' · '+esc(p.brand):''); }
+
+function rSkin(){
+  var h='<div class="head"><div class="pgo" onclick="openNav()">🧴</div><div class="ht"><h1>护肤小站</h1><div class="sub">好好爱自己，从肌肤开始</div></div><button class="gear" onclick="openSettings()">⚙️</button></div>';
+  h+=tabsHtml('skin',['🧴 护肤品仓库','📋 每日流程','📝 肤质档案','💡 AI建议']);
+  var tb=tabState.skin;
+  if(tb===0) h+=skinTabProducts();
+  if(tb===1) h+=skinTabRoutine();
+  if(tb===2) h+=skinTabProfile();
+  if(tb===3) h+=skinTabAdvice();
   return h;
 }
-function addHobby(){
-  showModal('添加爱好 🧸',[
-    {key:'name',label:'爱好名称',ph:'例如：手账 / 摄影 / 烘焙'},
-    {key:'icon',label:'挑一个 emoji 图标',ph:'📔'}
-  ],function(v){ if(!v.name)return false; S.hobby.list.push({name:v.name,icon:v.icon||'🌸'}); render(); });
+
+/* ---- Tab0: 护肤品仓库 ---- */
+function skinTabProducts(){
+  var h='<div class="card"><div class="rowline"><h3>🧴 我的护肤品</h3><button class="btn sm pk" onclick="addProduct()">＋ 添加</button></div><div class="dotline"></div>';
+  if(!S.skin.products.length){ h+=emptyHtml('🧴','添加你现有的护肤品吧'); h+='</div>'; return h; }
+  // 按类型分组
+  var byType={};
+  S.skin.products.forEach(function(p){
+    var ty=p.type||'其他';
+    if(!byType[ty])byType[ty]=[];
+    byType[ty].push(p);
+  });
+  SKIN_TYPES.forEach(function(ty){
+    if(!byType[ty])return;
+    h+='<div style="margin-top:10px"><small style="color:var(--ink-2);font-weight:600">'+(SKIN_TYPE_IC[ty]||'🌸')+' '+ty+' ('+byType[ty].length+')</small></div>';
+    byType[ty].forEach(function(p){
+      var status=p.status||'在使用';
+      var stCls=status==='已用完'?'style="opacity:.5"':'';
+      var openInfo=p.openDate?' · 开瓶 '+fmtD(p.openDate):'';
+      h+='<div class="li" '+stCls+'><div style="flex:1"><b>'+esc(p.name)+'</b>'
+        +(p.brand?' · <small>'+esc(p.brand)+'</small>':'')
+        +(p.vol?' · '+esc(p.vol):'')
+        +'<small>'+openInfo+(p.note?' · '+esc(p.note):'')+'</small></div>'
+        +'<span class="pill '+(status==='已用完'?'ghost':'pp')+'" onclick="cycleProduct(\''+p.id+'\')">'+status+'</span>'
+        +'<button class="del" onclick="rmProduct(\''+p.id+'\')">✕</button></div>';
+    });
+  });
+  h+='</div>';
+  return h;
 }
-function addHobbyLog(hobby){
-  var opts=[{v:'',t:'（不关联爱好）'}].concat(S.hobby.list.map(function(x){return{v:x.name,t:x.icon+' '+x.name}}));
-  showModal('时光记录 📷',[
-    {key:'hobby',label:'关联爱好',type:'select',options:opts,value:hobby||''},
-    {key:'note',label:'记录内容',type:'textarea',ph:'今天做了什么开心的事？'},
-    {key:'date',label:'日期',type:'date',value:today()}
+function addProduct(){
+  var typeOpts=SKIN_TYPES.map(function(t){return{v:t,t:(SKIN_TYPE_IC[t]||'🌸')+' '+t}});
+  showModal('添加护肤品 🧴',[
+    {key:'name',label:'产品名称',ph:'例如：烟酰胺精华'},
+    {key:'brand',label:'品牌（选填）',ph:'例如：Olay'},
+    {key:'type',label:'类型',type:'select',options:typeOpts,value:'精华'},
+    {key:'vol',label:'容量（选填）',ph:'例如：30ml'},
+    {key:'openDate',label:'开瓶日期（选填）',type:'date'},
+    {key:'status',label:'状态',type:'select',options:[{v:'在使用',t:'🟢 在使用'},{v:'备用',t:'🟡 备用'},{v:'已用完',t:'⚫ 已用完'}],value:'在使用'},
+    {key:'note',label:'备注（选填）',ph:'肤感 / 功效 / 过敏反应等'}
   ],function(v){
-    if(!v.note)return false;
-    S.hobby.logs.unshift({id:uid(),hobby:v.hobby,note:v.note,date:v.date||today()}); render(); toast('美好 +1 🌷');
+    if(!v.name)return false;
+    S.skin.products.push({id:uid(),name:v.name,brand:v.brand||'',type:v.type||'其他',vol:v.vol||'',openDate:v.openDate||'',status:v.status||'在使用',note:v.note||''});
+    render(); toast('已添加到仓库 🧴');
   });
 }
-function rmHobbyLog(id){ S.hobby.logs=S.hobby.logs.filter(function(l){return l.id!==id}); render(); }
-function addWish(){
-  showModal('许个心愿 ✨',[{key:'title',label:'心愿内容',ph:'例如：去海边看日出'}],function(v){
-    if(!v.title)return false; S.hobby.wishes.unshift({id:uid(),title:v.title,done:false}); render();
+function cycleProduct(id){
+  S.skin.products.forEach(function(p){
+    if(p.id===id){
+      var order=['在使用','备用','已用完'];
+      var idx=order.indexOf(p.status||'在使用');
+      p.status=order[(idx+1)%3];
+    }
+  });
+  render();
+}
+function rmProduct(id){ S.skin.products=S.skin.products.filter(function(p){return p.id!==id}); render(); }
+
+/* ---- Tab1: 每日流程 + 记录 ---- */
+function skinTabRoutine(){
+  var t=today();
+  var h='';
+  // 今日打卡
+  var todayLogs=S.skin.logs.filter(function(l){return l.date===t});
+  h+='<div class="card"><div class="rowline"><h3>📝 今日护肤记录</h3><button class="btn sm pp" onclick="addSkinLog()">＋ 打卡</button></div><div class="dotline"></div>';
+  if(todayLogs.length){
+    todayLogs.forEach(function(l){
+      var prods=(l.prodIds||[]).map(prodName).join('、')||'手动记录';
+      h+='<div class="li"><div style="flex:1"><b>'+(l.session==='pm'?'🌙 晚间':'☀️ 早间')+'</b> · '+esc(prods)
+        +'<small>'+fmtD(l.date)+(l.skinFeel?' · 肤况：'+esc(l.skinFeel):'')+(l.breakout?' · ⚠️'+esc(l.breakout):'')+'</small></div>'
+        +'<button class="del" onclick="rmSkinLog(\''+l.id+'\')">✕</button></div>';
+    });
+  }else{
+    h+=emptyHtml('📝','今天还没护肤打卡哦');
+  }
+  h+='</div>';
+  // 流程规划
+  h+='<div class="card"><div class="rowline"><h3>📋 护肤流程规划</h3></div><div class="dotline"></div>';
+  h+='<small style="color:var(--ink-2)">点击右侧 ＋ 添加步骤，拖动顺序后续支持</small>';
+  ['am','pm'].forEach(function(ses){
+    var label=ses==='am'?'☀️ 早间流程':'🌙 晚间流程';
+    var steps=S.skin.routines[ses]||[];
+    h+='<div style="margin-top:10px"><b style="font-size:13px">'+label+'</b>';
+    if(steps.length){
+      steps.forEach(function(st,i){
+        var p=prodById(st.prodId);
+        h+='<div class="li"><span style="color:var(--ink-2);font-weight:700;width:20px">'+(i+1)+'</span><div style="flex:1">'+prodLabel(p||{name:'(自定义)',type:''})
+          +(st.note?' · <small>'+esc(st.note)+'</small>':'')+'</div>'
+          +'<button class="del" onclick="rmRoutineStep(\''+ses+'\',\''+st.id+'\')">✕</button></div>';
+      });
+    }else{
+      h+='<div style="padding:8px 0;color:var(--ink-3);font-size:12px">暂无步骤</div>';
+    }
+    h+='<button class="btn sm ghost" style="margin-top:4px" onclick="addRoutineStep(\''+ses+'\')">＋ 添加步骤</button></div>';
+  });
+  h+='</div>';
+  return h;
+}
+function addSkinLog(){
+  var prodOpts=S.skin.products.filter(function(p){return p.status!=='已用完'}).map(function(p){return{v:p.id,t:prodLabel(p)}});
+  showModal('护肤打卡 📝',[
+    {key:'session',label:'时段',type:'select',options:[{v:'am',t:'☀️ 早间'},{v:'pm',t:'🌙 晚间'}],value:new Date().getHours()<14?'am':'pm'},
+    {key:'prodIds',label:'用了哪些（可多选）',type:'multiselect',options:prodOpts},
+    {key:'skinFeel',label:'肤况感受',type:'select',options:[{v:'',t:'——'},{v:'水润舒适',t:'💧 水润舒适'},{v:'有点干',t:'🍂 有点干'},{v:'出油',t:'💦 出油'},{v:'泛红',t:'🔴 泛红'},{v:'刺痛',t:'⚠️ 刺痛'}]},
+    {key:'breakout',label:'痘痘情况',type:'select',options:[{v:'',t:'——'},{v:'无新痘',t:'✅ 无新痘'},{v:'冒了1-2颗',t:'💢 冒了1-2颗'},{v:'爆发',t:'🔥 爆发'}]},
+    {key:'note',label:'备注（选填）',ph:'今天皮肤状态如何？'}
+  ],function(v){
+    S.skin.logs.unshift({id:uid(),date:today(),session:v.session,prodIds:v.prodIds||[],skinFeel:v.skinFeel||'',breakout:v.breakout||'',note:v.note||''});
+    render(); toast('护肤打卡成功 ✨');
   });
 }
-function tgWish(id){ S.hobby.wishes.forEach(function(w){if(w.id===id){w.done=!w.done; if(w.done)toast('心愿达成 🎉');}}); render(); }
-function rmWish(id){ S.hobby.wishes=S.hobby.wishes.filter(function(w){return w.id!==id}); render(); }
+function rmSkinLog(id){ S.skin.logs=S.skin.logs.filter(function(l){return l.id!==id}); render(); }
+function addRoutineStep(ses){
+  var prodOpts=S.skin.products.map(function(p){return{v:p.id,t:prodLabel(p)}});
+  prodOpts.unshift({v:'',t:'（自定义步骤，不关联产品）'});
+  showModal('添加流程步骤',[
+    {key:'prodId',label:'关联产品',type:'select',options:prodOpts},
+    {key:'note',label:'步骤说明（选填）',ph:'例如：取2泵，轻拍吸收'}
+  ],function(v){
+    if(!S.skin.routines[ses])S.skin.routines[ses]=[];
+    S.skin.routines[ses].push({id:uid(),prodId:v.prodId||'',note:v.note||''});
+    render(); toast('已添加步骤');
+  });
+}
+function rmRoutineStep(ses,id){
+  if(S.skin.routines[ses])S.skin.routines[ses]=S.skin.routines[ses].filter(function(s){return s.id!==id});
+  render();
+}
+
+/* ---- Tab2: 肤质档案 ---- */
+function skinTabProfile(){
+  var p=S.skin.profile;
+  var h='<div class="card"><div class="rowline"><h3>📝 我的肤质档案</h3><button class="btn sm pk" onclick="editProfile()">编辑</button></div><div class="dotline"></div>';
+  h+='<div class="li"><div style="flex:1">肤质类型<b style="float:right;color:var(--purple)">'+(p.type||'未设置')+'</b></div></div>';
+  h+='<div class="li"><div style="flex:1">痘痘情况<b style="float:right;color:var(--pink)">'+(p.acne||'未设置')+'</b></div></div>';
+  h+='<div class="li"><div style="flex:1">敏感程度<b style="float:right;color:var(--orange,#e8915c)">'+(p.sensitive||'未设置')+'</b></div></div>';
+  h+='<div class="li"><div style="flex:1">过敏成分<small style="display:block;margin-top:2px">'+esc(p.allergy||'无')+'</small></div></div>';
+  h+='<div class="li"><div style="flex:1">主要诉求<small style="display:block;margin-top:2px">'+esc(p.concern||'未设置')+'</small></div></div>';
+  if(p.note)h+='<div class="li"><div style="flex:1">备注<small style="display:block;margin-top:2px">'+esc(p.note)+'</small></div></div>';
+  h+='</div>';
+  // 最近7天护肤记录趋势
+  var last7=[];
+  for(var i=6;i>=0;i--){var d=new Date();d.setDate(d.getDate()-i);last7.push(d.toISOString().slice(0,10));}
+  var logN=last7.map(function(d){return S.skin.logs.filter(function(l){return l.date===d}).length});
+  var breakoutN=S.skin.logs.filter(function(l){return l.date>=last7[0]&&l.breakout&&l.breakout.indexOf('无')<0}).length;
+  h+='<div class="card"><div class="rowline"><h3>📊 近7天趋势</h3></div><div class="dotline"></div>';
+  h+='<div class="li"><div style="flex:1">护肤打卡<b style="float:right">'+logN.reduce(function(a,b){return a+b},0)+' 次</b></div></div>';
+  h+='<div class="li"><div style="flex:1">冒痘记录<b style="float:right;color:var(--pink)">'+breakoutN+' 次</b></div></div>';
+  h+='</div>';
+  return h;
+}
+function editProfile(){
+  var p=S.skin.profile;
+  showModal('编辑肤质档案 📝',[
+    {key:'type',label:'肤质类型',type:'select',options:SKIN_FACE_TYPES.map(function(t){return{v:t,t:t}}),value:p.type||''},
+    {key:'acne',label:'痘痘情况',type:'select',options:SKIN_ACNE.map(function(t){return{v:t,t:t}}),value:p.acne||''},
+    {key:'sensitive',label:'敏感程度',type:'select',options:SKIN_SENS.map(function(t){return{v:t,t:t}}),value:p.sensitive||''},
+    {key:'allergy',label:'过敏成分（逗号分隔）',ph:'例如：酒精, 香精, 水杨酸',value:p.allergy||''},
+    {key:'concern',label:'主要诉求',ph:'例如：控油祛痘、美白、抗老',value:p.concern||''},
+    {key:'note',label:'备注',type:'textarea',ph:'其他需要记录的肤质信息',value:p.note||''}
+  ],function(v){
+    S.skin.profile={type:v.type||'',acne:v.acne||'',sensitive:v.sensitive||'',allergy:v.allergy||'',concern:v.concern||'',note:v.note||''};
+    render(); toast('肤质档案已更新 📝');
+  });
+}
+
+/* ---- Tab3: AI 护肤建议 ---- */
+function skinTabAdvice(){
+  var h='<div class="card"><div class="rowline"><h3>💡 AI 护肤建议</h3><button class="btn sm pp" onclick="genSkinAdvice()">🔄 刷新建议</button></div><div class="dotline"></div>';
+  h+='<small style="color:var(--ink-2)">根据你的肤质档案和护肤品仓库智能生成</small>';
+  var adv=genSkinAdviceData();
+  if(!adv.length){ h+=emptyHtml('💡','先完善肤质档案和添加护肤品，才能给出建议哦'); h+='</div>'; return h; }
+  adv.forEach(function(a){
+    h+='<div style="margin-top:10px;padding:10px;border-radius:10px;background:'+(a.bg||'#f6f4ff')+'">'
+      +'<div style="font-weight:700;font-size:13px">'+a.icon+' '+esc(a.title)+'</div>'
+      +'<div style="font-size:12px;color:var(--ink-2);margin-top:4px;line-height:1.6">'+a.html.replace(/\n/g,'<br>')+'</div></div>';
+  });
+  h+='</div>';
+  return h;
+}
+function genSkinAdvice(){ render(); toast('已刷新建议 💡'); }
+
+function genSkinAdviceData(){
+  var p=S.skin.profile;
+  var prods=S.skin.products;
+  var advice=[];
+  var hasType=!!p.type, hasAcne=!!p.acne;
+
+  // 1. 流程完整性检查
+  var amSteps=S.skin.routines.am||[], pmSteps=S.skin.routines.pm||[];
+  var hasCleanser=prods.some(function(x){return x.type==='洁面'&&x.status!=='已用完'});
+  var hasSunscreen=prods.some(function(x){return x.type==='防晒'&&x.status!=='已用完'});
+  var hasMoist=prods.some(function(x){return (x.type==='乳液'||x.type==='面霜')&&x.status!=='已用完'});
+
+  var flowMsg=[];
+  if(!hasCleanser)flowMsg.push('⚠️ 仓库里没有「洁面」产品，建议补充一款温和洁面');
+  if(!hasSunscreen)flowMsg.push('⚠️ 缺少「防晒」，防晒是护肤重中之重！');
+  if(!hasMoist)flowMsg.push('⚠️ 缺少「乳液/面霜」保湿产品');
+  if(amSteps.length<2)flowMsg.push('☀️ 早间流程步骤偏少，建议至少：洁面→保湿→防晒');
+  if(pmSteps.length<2)flowMsg.push('🌙 晚间流程步骤偏少，建议至少：卸妆/洁面→保湿');
+  if(flowMsg.length){
+    advice.push({icon:'📋',title:'流程完整性',bg:'#fff5e6',html:flowMsg.join('\n')});
+  }else{
+    advice.push({icon:'📋',title:'流程完整性',bg:'#e8f7ee',html:'✅ 基础流程齐全，继续保持！'});
+  }
+
+  // 2. 痘痘专项建议
+  if(hasAcne && (p.acne==='频繁长痘'||p.acne==='严重痘痘')){
+    var acneMsg=[];
+    acneMsg.push('你的痘痘情况为「'+p.acne+'」，需要特别注意：');
+    acneMsg.push('1. 避免厚重封闭性产品（如矿物油、厚重面霜）');
+    acneMsg.push('2. 可选含水杨酸(BHA)、烟酰胺、茶树精油成分的产品');
+    acneMsg.push('3. 精简护肤，避免叠加太多层');
+    acneMsg.push('4. 注意清洁但不要过度，避免皂基洁面');
+    // 检查仓库里是否有祛痘相关
+    var hasBHA=prods.some(function(x){return /水杨酸|BHA|祛痘|茶树/i.test(x.name+x.note)});
+    if(hasBHA)acneMsg.push('✅ 检测到仓库有祛痘成分产品，可重点使用');
+    else acneMsg.push('💡 仓库暂无明确祛痘成分产品，可考虑补充');
+    if(p.acne==='严重痘痘')acneMsg.push('⚠️ 严重痘痘建议皮肤科就诊，护肤品只能辅助');
+    advice.push({icon:'🌋',title:'痘痘专项',bg:'#ffeef0',html:acneMsg.join('\n')});
+  }
+
+  // 3. 敏感肌建议
+  if(p.sensitive==='容易泛红'||p.sensitive==='重度敏感'){
+    var senMsg=[];
+    senMsg.push('你的肌肤「'+p.sensitive+'」，护肤原则：');
+    senMsg.push('1. 选成分精简、无香精无酒精的产品');
+    senMsg.push('2. 新产品先在耳后/手腕内侧做48小时测试');
+    senMsg.push('3. 避免高浓度酸类、酒精、香精');
+    if(p.allergy){
+      senMsg.push('4. 你的过敏成分：'+p.allergy+'，购买前务必查成分表');
+      // 检查仓库里是否有含过敏成分的
+      var allergens=p.allergy.split(/[,，、\s]+/).filter(function(x){return x});
+      var risky=[];
+      prods.forEach(function(x){
+        allergens.forEach(function(a){
+          if(a && (x.name.indexOf(a)>=0||(x.note||'').indexOf(a)>=0))risky.push(x.name);
+        });
+      });
+      if(risky.length)senMsg.push('⚠️ 仓库中可能含过敏成分：'+risky.join('、')+'，建议停用');
+    }
+    advice.push({icon:'🌸',title:'敏感肌护理',bg:'#fdeef6',html:senMsg.join('\n')});
+  }
+
+  // 4. 肤质匹配建议
+  if(hasType){
+    var tyMsg=[];
+    if(p.type==='油性'||p.type==='混油'){
+      tyMsg.push('油性/混油肌肤建议：');
+      tyMsg.push('• 选清爽型保湿（啫喱/凝露），避免厚重面霜');
+      tyMsg.push('• 定期使用水杨酸/BHA疏通毛孔');
+      tyMsg.push('• 控油同时不要忽略保湿，水油平衡才是关键');
+    }else if(p.type==='干性'||p.type==='混干'){
+      tyMsg.push('干性/混干肌肤建议：');
+      tyMsg.push('• 选滋润型保湿，面霜+精华叠加');
+      tyMsg.push('• 可用含透明质酸、神经酰胺、角鲨烷的产品');
+      tyMsg.push('• 洁面选氨基酸型，避免皂基过度清洁');
+    }else if(p.type==='中性'){
+      tyMsg.push('中性肌肤很棒！建议：');
+      tyMsg.push('• 维持现状，做好基础保湿+防晒即可');
+      tyMsg.push('• 可根据季节调整产品厚薄');
+    }else if(p.type==='敏感'){
+      tyMsg.push('敏感肌肤建议：');
+      tyMsg.push('• 精简护肤，less is more');
+      tyMsg.push('• 选药妆/敏感肌专用品牌');
+      tyMsg.push('• 避免频繁换产品和去角质');
+    }
+    if(tyMsg.length)advice.push({icon:'🎯',title:'肤质匹配',bg:'#eef0ff',html:tyMsg.join('\n')});
+  }
+
+  // 5. 产品搭配建议
+  if(prods.length>=2){
+    var matchMsg=[];
+    var hasEssence=prods.some(function(x){return x.type==='精华'&&x.status!=='已用完'});
+    var hasMask=prods.some(function(x){return x.type==='面膜'&&x.status!=='已用完'});
+    if(hasEssence)matchMsg.push('✅ 有精华，建议在爽肤水后、乳液前使用');
+    if(hasMask)matchMsg.push('🎭 有面膜，建议每周2-3次，敷完记得锁水');
+    var using=prods.filter(function(x){return x.status==='在使用'});
+    if(using.length>8)matchMsg.push('⚠️ 同时在用的产品较多('+using.length+'件)，精简一些更利于肌肤稳定');
+    if(matchMsg.length)advice.push({icon:'🧴',title:'产品搭配',bg:'#f0f7ee',html:matchMsg.join('\n')});
+  }
+
+  // 6. 每日打卡提醒
+  var t=today();
+  var todayLog=S.skin.logs.filter(function(l){return l.date===t});
+  if(!todayLog.length){
+    advice.push({icon:'⏰',title:'今日提醒',bg:'#fff5e6',html:'今天还没护肤打卡哦～记得早晚护肤！\n坚持是最好的护肤'});
+  }else{
+    var todayBreakout=todayLog.some(function(l){return l.breakout&&l.breakout.indexOf('无')<0});
+    if(todayBreakout){
+      advice.push({icon:'⚠️',title:'今日关注',bg:'#ffeef0',html:'今天有冒痘记录，注意：\n• 暂停新产品尝试\n• 避免辛辣甜食\n• 保证睡眠，多喝水'});
+    }else{
+      advice.push({icon:'🌟',title:'今日状态',bg:'#e8f7ee',html:'今天已护肤打卡，且无新痘，继续保持！\n好皮肤是坚持出来的～'});
+    }
+  }
+
+  if(!advice.length){
+    advice.push({icon:'💡',title:'开始使用',bg:'#f6f4ff',html:'完善肤质档案 + 添加护肤品后\n就能获得个性化护肤建议啦！'});
+  }
+  return advice;
+}
 
 /* ================= 6. 理财 ================= */
 var CAT_OUT=['餐饮 🍜','购物 🛍️','交通 🚌','娱乐 🎮','学习 📚','居家 🏠','其他 🌸'];

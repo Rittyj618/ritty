@@ -1,4 +1,4 @@
-const VERSION = 'ritty-v12';
+const VERSION = 'ritty-v13';
 const STATIC = ['.', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
